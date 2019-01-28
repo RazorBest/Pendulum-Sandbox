@@ -5,6 +5,7 @@ import os
 import time
 import threading
 import wx
+import wx.lib.resizewidget
 from pendulum import Pendulum
 
 class BufferedWindow(wx.Window):
@@ -27,11 +28,14 @@ class BufferedWindow(wx.Window):
         dc.SelectObject(self._Buffer)
         self.Draw(dc)
         del dc
-        self.Refresh(eraseBackground=False, rect=rect)
-        self.Update()
+        #self.Refresh(eraseBackground=False, rect=rect)
+        #self.Update()
+        wx.CallAfter(self.Paint)
+        #self.Draw(wx.BufferedDC(wx.ClientDC(self), self._Buffer))
+        
         #self.Layout()
 
-    def OnSize(self, e=None):
+    def OnSize(self, e=None):   
         size = self.GetClientSize()
         #size = self.GetParent().GetSize()
         self._Buffer = wx.Bitmap(size)
@@ -39,9 +43,13 @@ class BufferedWindow(wx.Window):
         if e != None:
             e.Skip()
 
-    def OnPaint(self, e):
+    def OnPaint(self, e=None):
         self.Draw(wx.BufferedPaintDC(self, self._Buffer))
         #e.Skip()
+
+    #does the same thing as OnPaint but is called by the client, not from a PaintEvent handler
+    def Paint(self):
+        self.Draw(wx.BufferedDC(wx.ClientDC(self), self._Buffer))
 
 class SimulationWindow(BufferedWindow):
     main_thread = None
@@ -73,11 +81,15 @@ class SimulationWindow(BufferedWindow):
         self.movingState = False
         self.pause = False
 
+        self.timer = wx.Timer(self)
+        
+        self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
         wx.CallLater(2000, self.StartThread)
 
         print "SimulationWindow initiated"
 
     def StartThread(self):
+        self.timer.Start(1000. / 200)
         self.running = True
         self.main_thread = threading.Thread(target=self.run)
         self.main_thread.daemon = True
@@ -99,23 +111,26 @@ class SimulationWindow(BufferedWindow):
                 if self.pause != True:
                     self.Tick()
                 lastTime += tickInterval
-                count += 1
+                #count += 1
 
-            if count >= ticksPerSecond:
+            """if count >= ticksPerSecond:
                 lastTime = currentTime
                 print "FPS: " + str(frames)
                 frames = 0
-                count = 0
+                count = 0"""
 
             # Do the drawing
-            try:
+            """try:
                 frames += 1
                 self.UpdateDrawing()
             except:
-                pass 
+                pass"""
 
     def Tick(self):
         self.pendulum.Tick()
+
+    def OnTimer(self, e):
+        self.UpdateDrawing()
 
     def Draw(self, dc):
         dc.Clear()
@@ -169,11 +184,11 @@ class Explorer(wx.Panel):
 
         #button = wx.Button(self, label='+Add Pendulum')
         #button.SetFont(wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        treectrl = wx.TreeCtrl(self)
-        root = treectrl.AddRoot('Adsa')
-        treectrl.AppendItem(root, 'adsa1')
-        treectrl.AppendItem(root, 'adsa2')
-        treectrl.AppendItem(root, 'adsa3')
+        #treectrl = wx.TreeCtrl(self)
+        #root = treectrl.AddRoot('Adsa')
+        #treectrl.AppendItem(root, 'adsa1')
+        #treectrl.AppendItem(root, 'adsa2')
+        #treectrl.AppendItem(root, 'adsa3')
         #sizer.Add(button)
         #sizer.Add(treectrl)
 
@@ -185,11 +200,10 @@ class Explorer(wx.Panel):
         
         #self.SetSizer(sizer)
 
-        #self.Bind(wx.EVT_ENTER_WINDOW, self.OnMouse)
         #self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         #self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
         #self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
-        #self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseRelease)
+        #self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
 
         self.sizing = False
 
@@ -200,11 +214,12 @@ class Explorer(wx.Panel):
             self.SetCursor(wx.Cursor(wx.CURSOR_SIZEWE))
         else:
             self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
-
         if self.sizing == True:
             self.SetSize(x + 7, height)
+            
     
     def OnMousePress(self, e):
+        print 'press'
         x = e.GetX()
         
         width = self.GetSize()[0]
@@ -212,28 +227,24 @@ class Explorer(wx.Panel):
             self.sizing = True
 
     def OnMouseRelease(self, e):
+        print 'release'
         self.sizing = False
         self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
+        #self.GetContainingSizer().SetItemMinSize(self, x + 7, height)
+        self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
+        self.GetParent().Layout()
 
-class DummyTree(wx.TreeCtrl):
-    def __init__(self, *args, **kwargs):
-        wx.TreeCtrl.__init__(self, *args, **kwargs)
-
-        #self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnErase)
-        self.Bind(wx.EVT_PAINT, self.OnPaint)
-
-    def OnErase(self, e):
-        pass
-
-    def OnPaint(self, e):
-        print 'wait what?'
-        e.Skip()
+    def OnMouseLeave(self, e):
+        #self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
+        #self.GetContainingSizer().SetItemMinSize(self, x + 7, height)
+        self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
+        self.GetParent().Layout()
 
 class FillWindow(wx.Window):
     def __init__(self, *args, **kwargs):
         wx.Window.__init__(self, *args, **kwargs)
 
-        self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnErase)
+        #self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnErase)
         self.Bind(wx.EVT_MOTION, self.OnMouse)
 
     def ChangeCursor(self, stockCursor):
@@ -297,19 +308,27 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.pauseTool)
 
         self.window = SimulationWindow(self, size=(width, height))
-        #self.fillWindow = FillWindow(self.window, style=wx.TRANSPARENT_WINDOW)
-        #self.fillWindow.Show(False)
-        #explorerPanel = Explorer(self.window, size=(150, height), style=wx.BORDER_SIMPLE)
-        #explorerPanel.SetBackgroundColour(wx.Colour(200, 200, 200))
-        treectrl = wx.TreeCtrl(self.window)
-        root = treectrl.AddRoot('Adsa')
-        treectrl.AppendItem(root, 'adsa1')
-        treectrl.AppendItem(root, 'adsa2')
-        treectrl.AppendItem(root, 'adsa3')
-        #windowSizer = wx.BoxSizer(wx.HORIZONTAL)
-        #windowSizer.Add(explorerPanel)
-        #windowSizer.Add(self.fillWindow, 1, wx.EXPAND)
-        #self.window.SetSizer(windowSizer)
+        self.fillWindow = FillWindow(self.window, style=wx.TRANSPARENT_WINDOW)
+
+        resizeWidget = wx.lib.resizewidget.ResizeWidget()
+        explorerPanel = Explorer(self.window, size=(150, height), style=wx.BORDER_SIMPLE)
+        explorerPanel.SetBackgroundColour(wx.Colour(200, 200, 200))
+        resizeWidget.AddChild(explorerPanel)
+        resizeWidget.EnableResize()
+        resizeWidget.SetDimensions(thickness=20, length=100)
+        #treectrl = wx.TreeCtrl(self.window)
+        #root = treectrl.AddRoot('Adsa')
+        #treectrl.AppendItem(root, 'adsa1')
+        #treectrl.AppendItem(root, 'adsa2')
+        #treectrl.AppendItem(root, 'adsa3')
+        windowSizer = wx.BoxSizer(wx.HORIZONTAL)
+        #explorerPanel.SetSize(150, height)
+        windowSizer.Add(explorerPanel)
+        
+        windowSizer.Add(self.fillWindow, 1, wx.EXPAND)
+        #flagsExpand = wx.SierFlags(1)
+        #windowSizer.Add(self.fillWindow, wx.EXPAND)
+        self.window.SetSizer(windowSizer)
 
         #window.SetPosition((0, 0))
         #explorerPanel = wx.Panel(self, size=(200,200))
@@ -324,20 +343,22 @@ class MainFrame(wx.Frame):
         self.Centre()
         self.Show(True)
 
-    def UpdateDrawing(self):
+    """def UpdateDrawing(self): old thing
         dc = wx.MemoryDC()
         dc.SelectObject(self._Buffer)
         self.Draw(dc)
         del dc
         self.Refresh(eraseBackground=False)
-        self.Update()
+        self.Update()"""
 
     def OnChangeCursor(self, e):
         id = e.GetId()
         if id == self.selectionTool.GetId():
             self.fillWindow.ChangeCursor(wx.CURSOR_ARROW)
         elif id == self.moveTool.GetId():
+            #print 'ahoy'
             self.fillWindow.ChangeCursor(wx.CURSOR_SIZING)
+            #self.ChangeCursor(wx.CURSOR_SIZING)
 
     def OnTogglePlay(self, e):
         id = e.GetId()
