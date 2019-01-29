@@ -6,6 +6,7 @@ import time
 import threading
 import wx
 import wx.lib.resizewidget
+import wx.lib.agw.customtreectrl
 from pendulum import Pendulum
 
 class BufferedWindow(wx.Window):
@@ -180,30 +181,45 @@ class Explorer(wx.Panel):
         wx.Window.__init__(self, *args, **kwargs)
 
         #textCtrl = []
-        #sizer = wx.BoxSizer(wx.VERTICAL)
+        self.hSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.vSizer = wx.BoxSizer(wx.VERTICAL)
 
-        #button = wx.Button(self, label='+Add Pendulum')
-        #button.SetFont(wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        #treectrl = wx.TreeCtrl(self)
+        button = wx.Button(self, label='+Add Pendulum')
+        button.SetFont(wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        #treectrl = wx.lib.agw.customtreectrl.CustomTreeCtrl(self, agwStyle=wx.TR_HAS_VARIABLE_ROW_HEIGHT)
+        pane = wx.CollapsiblePane(self)
         #root = treectrl.AddRoot('Adsa')
-        #treectrl.AppendItem(root, 'adsa1')
+
+        # Create an image list to add icons next to an item
+        #il = wx.ImageList(16, 16)
+        #normal = il.Add(wx.ArtProvider.GetBitmap(wx.ART_PLUS, wx.ART_OTHER, (16, 16)))
+        #expanded = il.Add(wx.ArtProvider.GetBitmap(wx.ART_MINUS, wx.ART_OTHER, (16, 16)))
+        
+        #treectrl.SetImageList(il)
+
+        #treectrl.SetItemImage(root, normal, wx.TreeItemIcon_Normal)
+        #treectrl.SetItemImage(root, expanded, wx.TreeItemIcon_Expanded)
+
         #treectrl.AppendItem(root, 'adsa2')
         #treectrl.AppendItem(root, 'adsa3')
-        #sizer.Add(button)
-        #sizer.Add(treectrl)
+        self.vSizer.Add(button)
+        self.vSizer.Add(pane, 0)
+        #self.vSizer.Add(treectrl, 1)
 
-        """for i in range(6):
-            t = wx.TextCtrl(self)
+        for i in range(6):
+            t = wx.TextCtrl(self, i + 4343)
             t.ShowNativeCaret()
-            sizer.Add(t)
-            textCtrl.append(t)"""
+            pane.Create(self, i + 4343)
+            #self.vSizer.Add(t)
+            #treectrl.AppendItem(root, 'adsa' + str(i), wnd=t)
+            #textCtrl.append(t)
 
-        #self.SetSizer(sizer)
+        self.hSizer.Add(self.vSizer, proportion=1, flag=wx.EXPAND|wx.RIGHT, border=10)
+        self.SetSizer(self.hSizer)
 
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
-        #self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnMouseCaptureLost)
 
         self.sizing = False
@@ -234,12 +250,6 @@ class Explorer(wx.Panel):
         self.GetParent().Layout()
         if self.HasCapture():
             self.ReleaseMouse()
-
-    def OnMouseLeave(self, e):
-        #self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
-        #self.GetContainingSizer().SetItemMinSize(self, x + 7, height)
-        self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
-        self.GetParent().Layout()
 
     def OnMouseCaptureLost(self, e):
         self.ReleaseMouse()
