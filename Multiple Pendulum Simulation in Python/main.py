@@ -79,7 +79,7 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseY = None
 
         self.movingState = False
-        self.pause = True#False
+        self.pause = False
 
         self.timer = wx.Timer(self)
 
@@ -203,7 +203,7 @@ class Explorer(wx.Panel):
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
-        self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
+        #self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnMouseCaptureLost)
 
         self.sizing = False
@@ -215,7 +215,7 @@ class Explorer(wx.Panel):
             self.SetCursor(wx.Cursor(wx.CURSOR_SIZEWE))
         else:
             self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
-        if self.sizing == True:
+        if self.sizing == True and x + 7 > 10:
             self.SetSize(x + 7, height)
 
 
@@ -230,7 +230,6 @@ class Explorer(wx.Panel):
     def OnMouseRelease(self, e):
         self.sizing = False
         self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
-        #self.GetContainingSizer().SetItemMinSize(self, x + 7, height)
         self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
         self.GetParent().Layout()
         if self.HasCapture():
