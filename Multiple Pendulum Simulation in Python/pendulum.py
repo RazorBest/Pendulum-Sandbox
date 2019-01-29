@@ -105,6 +105,8 @@ class Pendulum:
             y = ny
             nx += sin(self.angles[i]) * self.l[i] * self.scale
             ny += cos(self.angles[i]) * self.l[i] * self.scale
+        dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
+        dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
         dc.DrawCircle(nx, ny, 13)
             
 
