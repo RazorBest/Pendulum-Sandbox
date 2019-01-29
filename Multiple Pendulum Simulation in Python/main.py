@@ -22,7 +22,7 @@ class BufferedWindow(wx.Window):
     # This funtion is for subclasses
     def Draw(self, dc):
         pass
-    
+
     def UpdateDrawing(self, rect=None):
         dc = wx.MemoryDC()
         dc.SelectObject(self._Buffer)
@@ -32,10 +32,10 @@ class BufferedWindow(wx.Window):
         #self.Update()
         wx.CallAfter(self.Paint)
         #self.Draw(wx.BufferedDC(wx.ClientDC(self), self._Buffer))
-        
+
         #self.Layout()
 
-    def OnSize(self, e=None):   
+    def OnSize(self, e=None):
         size = self.GetClientSize()
         #size = self.GetParent().GetSize()
         self._Buffer = wx.Bitmap(size)
@@ -58,8 +58,8 @@ class SimulationWindow(BufferedWindow):
         self.ticksPerSecond = 500
         self.pendulum = Pendulum(200, 100, 1. / self.ticksPerSecond)
         self.pendulum.AddPendulum(20, 80, 2, 0)
-        self.pendulum.AddPendulum(20, 80, 1.5, 0)
-        self.pendulum.AddPendulum(31, 70, 1, 0)
+        #self.pendulum.AddPendulum(20, 80, 1.5, 0)
+        #self.pendulum.AddPendulum(31, 70, 1, 0)
 
         #kwargs['size'] = (300, 200)
         BufferedWindow.__init__(self, *args, **kwargs)
@@ -79,10 +79,10 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseY = None
 
         self.movingState = False
-        self.pause = False
+        self.pause = True#False
 
         self.timer = wx.Timer(self)
-        
+
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
         wx.CallLater(2000, self.StartThread)
 
@@ -106,7 +106,7 @@ class SimulationWindow(BufferedWindow):
 
         while self.running:
             currentTime = time.clock()
-            
+
             while currentTime - lastTime >= tickInterval:
                 if self.pause != True:
                     self.Tick()
@@ -160,7 +160,7 @@ class SimulationWindow(BufferedWindow):
             self.originY += y - self.lastMouseY
         self.lastMouseX = x
         self.lastMouseY = y
-        
+
     def OnMouseClick(self, e):
         pass
 
@@ -172,8 +172,8 @@ class SimulationWindow(BufferedWindow):
             self.originX -= (mx - self.originX) * mag / float(self.scale)
             self.originY -= (my - self.originY) * mag / float(self.scale)
             self.scale += mag
-        
-        
+
+
 
 class Explorer(wx.Panel):
     def __init__(self, *args, **kwargs):
@@ -197,13 +197,14 @@ class Explorer(wx.Panel):
             t.ShowNativeCaret()
             sizer.Add(t)
             textCtrl.append(t)"""
-        
+
         #self.SetSizer(sizer)
 
-        #self.Bind(wx.EVT_MOTION, self.OnMouseMove)
-        #self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
-        #self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
-        #self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
+        self.Bind(wx.EVT_MOTION, self.OnMouseMove)
+        self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
+        self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
+        self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
+        self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnMouseCaptureLost)
 
         self.sizing = False
 
@@ -216,29 +217,33 @@ class Explorer(wx.Panel):
             self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
         if self.sizing == True:
             self.SetSize(x + 7, height)
-            
-    
+
+
     def OnMousePress(self, e):
-        print 'press'
         x = e.GetX()
-        
+
         width = self.GetSize()[0]
         if (x >= width - 8):
             self.sizing = True
+            self.CaptureMouse()
 
     def OnMouseRelease(self, e):
-        print 'release'
         self.sizing = False
         self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
         #self.GetContainingSizer().SetItemMinSize(self, x + 7, height)
         self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
         self.GetParent().Layout()
+        if self.HasCapture():
+            self.ReleaseMouse()
 
     def OnMouseLeave(self, e):
         #self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
         #self.GetContainingSizer().SetItemMinSize(self, x + 7, height)
         self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
         self.GetParent().Layout()
+
+    def OnMouseCaptureLost(self, e):
+        self.ReleaseMouse()
 
 class FillWindow(wx.Window):
     def __init__(self, *args, **kwargs):
@@ -256,7 +261,7 @@ class FillWindow(wx.Window):
 
     def OnErase(self, e):
         pass
-    
+
     def OnMouse(self, e):
         self.GetParent().SafelyProcessEvent(e)
         e.Skip()
@@ -268,15 +273,15 @@ class MainFrame(wx.Frame):
         width = 800
         height = 600
 
-        wx.Frame.__init__(self, parent, title=title, size=(width, height), 
-            style=wx.DEFAULT_FRAME_STYLE ^ wx.CLIP_CHILDREN)    
+        wx.Frame.__init__(self, parent, title=title, size=(width, height),
+            style=wx.DEFAULT_FRAME_STYLE ^ wx.CLIP_CHILDREN)
 
         #self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
         #self.CreateStatusBar() # A Statusbar in the bottom of the frame
 
         #Setting up the menu
         filemenu = wx.Menu()
-        
+
         # wx.ID_ABOUT and wx.ID_EXIT are standards provided by wxWidgets
         menuOpen = filemenu.Append(wx.ID_OPEN, "Open", "Open a file from the system")
         filemenu.AppendSeparator()
@@ -287,7 +292,7 @@ class MainFrame(wx.Frame):
         # Creating the menubar
         menuBar = wx.MenuBar()
         menuBar.Append(filemenu, "File") # Adding the "filemenu" to the MenuBar
-        #self.SetMenuBar(menuBar) # Adding the MenuBar to the Frame content  
+        #self.SetMenuBar(menuBar) # Adding the MenuBar to the Frame content
 
         toolbar = self.CreateToolBar()
         self.selectionTool = toolbar.AddRadioTool(wx.ID_ANY, 'Selection', wx.Bitmap('icons/selection.png'))
@@ -296,7 +301,7 @@ class MainFrame(wx.Frame):
         self.playTool = toolbar.AddRadioTool(wx.ID_ANY, 'Play', wx.Bitmap('icons/play.png'))
         self.pauseTool = toolbar.AddRadioTool(wx.ID_ANY, 'Pause', wx.Bitmap('icons/pause.png'))
         toolbar.Realize()
-        
+
 
         # Set events
         self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
@@ -310,12 +315,8 @@ class MainFrame(wx.Frame):
         self.window = SimulationWindow(self, size=(width, height))
         self.fillWindow = FillWindow(self.window, style=wx.TRANSPARENT_WINDOW)
 
-        resizeWidget = wx.lib.resizewidget.ResizeWidget()
         explorerPanel = Explorer(self.window, size=(150, height), style=wx.BORDER_SIMPLE)
         explorerPanel.SetBackgroundColour(wx.Colour(200, 200, 200))
-        resizeWidget.AddChild(explorerPanel)
-        resizeWidget.EnableResize()
-        resizeWidget.SetDimensions(thickness=20, length=100)
         #treectrl = wx.TreeCtrl(self.window)
         #root = treectrl.AddRoot('Adsa')
         #treectrl.AppendItem(root, 'adsa1')
@@ -324,7 +325,7 @@ class MainFrame(wx.Frame):
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         #explorerPanel.SetSize(150, height)
         windowSizer.Add(explorerPanel)
-        
+
         windowSizer.Add(self.fillWindow, 1, wx.EXPAND)
         #flagsExpand = wx.SierFlags(1)
         #windowSizer.Add(self.fillWindow, wx.EXPAND)
@@ -397,7 +398,7 @@ def main():
 
     frame.Show(True)
     app.MainLoop()
-        
+
 
 if __name__ == "__main__":
     main()
