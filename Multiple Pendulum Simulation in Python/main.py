@@ -58,9 +58,14 @@ class SimulationWindow(BufferedWindow):
     def __init__(self, *args, **kwargs):
         self.ticksPerSecond = 500
         self.pendulum = Pendulum(200, 100, 1. / self.ticksPerSecond)
+        self.pendulum.AddPendulum(2000, 80, 2, 0)
+        self.pendulum.AddPendulum(20, 180, 1.5, 0)
+        self.pendulum.AddPendulum(31, 70, 1, 0)
+        self.pendulum.AddPendulum(31, 70, 1, 0)
         self.pendulum.AddPendulum(20, 80, 2, 0)
-        #self.pendulum.AddPendulum(20, 80, 1.5, 0)
-        #self.pendulum.AddPendulum(31, 70, 1, 0)
+        self.pendulum.AddPendulum(20, 80, 1.5, 0)
+        self.pendulum.AddPendulum(21, 70, 1, 0)
+        self.pendulum.AddPendulum(21, 70, 1, 0)
 
         #kwargs['size'] = (300, 200)
         BufferedWindow.__init__(self, *args, **kwargs)
@@ -174,48 +179,42 @@ class SimulationWindow(BufferedWindow):
             self.originY -= (my - self.originY) * mag / float(self.scale)
             self.scale += mag
 
+class VariableEditor(wx.CollapsiblePane):
+    def __init__(self, *args, **kwargs):
+        wx.CollapsiblePane.__init__(self, *args, **kwargs)
 
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.GetPane().SetSizer(self.sizer)
+
+    def AddVariable(self, variableName=None):
+        t = wx.TextCtrl(self.GetPane(), id=wx.ID_ANY, style=wx.BORDER_DEFAULT)
+        t.ShowNativeCaret()
+        #if len(self.sizer.GetChildren()) = 1: #If this is not the first child
+         #   self.sizer.AddSpacer(15)
+        self.sizer.Add(t, flag=wx.LEFT|wx.RIGHT, border=10)
+
+        self.sizer.Layout()
 
 class Explorer(wx.Panel):
     def __init__(self, *args, **kwargs):
         wx.Window.__init__(self, *args, **kwargs)
 
-        #textCtrl = []
-        self.hSizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.vSizer = wx.BoxSizer(wx.VERTICAL)
+        textCtrl = []
+        self.horizontalSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.verticalSizer = wx.BoxSizer(wx.VERTICAL)
 
         button = wx.Button(self, label='+Add Pendulum')
         button.SetFont(wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        #treectrl = wx.lib.agw.customtreectrl.CustomTreeCtrl(self, agwStyle=wx.TR_HAS_VARIABLE_ROW_HEIGHT)
-        pane = wx.CollapsiblePane(self)
-        #root = treectrl.AddRoot('Adsa')
+        pane = VariableEditor(self)
 
-        # Create an image list to add icons next to an item
-        #il = wx.ImageList(16, 16)
-        #normal = il.Add(wx.ArtProvider.GetBitmap(wx.ART_PLUS, wx.ART_OTHER, (16, 16)))
-        #expanded = il.Add(wx.ArtProvider.GetBitmap(wx.ART_MINUS, wx.ART_OTHER, (16, 16)))
-        
-        #treectrl.SetImageList(il)
-
-        #treectrl.SetItemImage(root, normal, wx.TreeItemIcon_Normal)
-        #treectrl.SetItemImage(root, expanded, wx.TreeItemIcon_Expanded)
-
-        #treectrl.AppendItem(root, 'adsa2')
-        #treectrl.AppendItem(root, 'adsa3')
-        self.vSizer.Add(button)
-        self.vSizer.Add(pane, 0)
-        #self.vSizer.Add(treectrl, 1)
+        self.verticalSizer.Add(button)
+        self.verticalSizer.Add(pane, 0)
 
         for i in range(6):
-            t = wx.TextCtrl(self, i + 4343)
-            t.ShowNativeCaret()
-            pane.Create(self, i + 4343)
-            #self.vSizer.Add(t)
-            #treectrl.AppendItem(root, 'adsa' + str(i), wnd=t)
-            #textCtrl.append(t)
+            pane.AddVariable()
 
-        self.hSizer.Add(self.vSizer, proportion=1, flag=wx.EXPAND|wx.RIGHT, border=10)
-        self.SetSizer(self.hSizer)
+        self.horizontalSizer.Add(self.verticalSizer, proportion=1, flag=wx.EXPAND|wx.RIGHT, border=10)
+        self.SetSizer(self.horizontalSizer)
 
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)

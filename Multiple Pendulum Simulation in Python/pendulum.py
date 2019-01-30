@@ -35,7 +35,7 @@ class Pendulum:
     def AddPendulum(self, mass, length, angle, velocity):
         self.id += 1
         id_s = str(self.id)
-        
+
         self.m.append(mass)
         self.l.append(length / self.scale)
         self.vels.append(velocity)
@@ -43,11 +43,11 @@ class Pendulum:
         self.n += 1
 
         self.InitArrays()
-    
+
     def Accelerations(self):
         n = self.n
         a = self.angles
-        
+
         for i in range(0, n):
             self.lc[i] = self.l[i] * cos(a[i])
             self.ls[i] = self.l[i] * sin(a[i])
@@ -59,7 +59,7 @@ class Pendulum:
                 self.A[2 * i + 1][j] = - self.ls[j]#self.l[j] * sin(a[j])#
                 #B[2 * i] += - lsv[j]#self.l[j] * sin(a[j]) * self.vels[j] * self.vels[j]#
                 #B[2 * i + 1] += lcv[j]#self.l[j] * cos(a[j]) * self.vels[j] * self.vels[j]
-            
+
             self.B[2 * i] = - self.lsv[i]
             self.B[2 * i + 1] = self.lcv[i]
             if i > 0:
@@ -77,13 +77,13 @@ class Pendulum:
 
         acc = solve(self.A, self.B)
         return acc[:n]
-    
+
     def Tick(self):
         acc = self.Accelerations()
         for i in range(0, self.n):
             self.vels[i] += acc[i] * self.deltaT
             self.angles[i] += self.vels[i] * self.deltaT
-        
+
     def Draw(self, dc, tx=0, ty=0):
         x = self.x
         y = self.y
@@ -98,17 +98,21 @@ class Pendulum:
             dc.SetBrush(wx.Brush(wx.BLACK))
             dc.SetPen(wx.Pen(wx.BLACK))
             dc.DrawLine(nx + tx, ny + ty, nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, ny + cos(self.angles[i]) * self.l[i] * self.scale + ty)
-            dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
-            dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
+            #dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
+            #dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
+            dc.SetPen(wx.Pen(wx.Colour(191 - i * 20, 19 + i * 10, 19 + i * 15)))
+            dc.SetBrush(wx.Brush(wx.Colour(191 - i * 20, 19 + 10 * i, 19 + i * 15)))
             dc.DrawCircle(nx, ny, 13)
             x = nx
             y = ny
             nx += sin(self.angles[i]) * self.l[i] * self.scale
             ny += cos(self.angles[i]) * self.l[i] * self.scale
-        dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
-        dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
+        #dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
+        #dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
+        dc.SetPen(wx.Pen(wx.Colour(191, 19, 19)))
+        dc.SetBrush(wx.Brush(wx.Colour(191, 19, 19)))
         dc.DrawCircle(nx, ny, 13)
-            
+
 
 if __name__ == '__main__':
     p = Pendulum(30, 30, 0.001)
