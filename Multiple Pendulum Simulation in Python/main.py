@@ -58,14 +58,8 @@ class SimulationWindow(BufferedWindow):
     def __init__(self, *args, **kwargs):
         self.ticksPerSecond = 500
         self.pendulum = Pendulum(200, 100, 1. / self.ticksPerSecond)
-        self.pendulum.AddPendulum(2000, 80, 2, 0)
-        self.pendulum.AddPendulum(20, 180, 1.5, 0)
-        self.pendulum.AddPendulum(31, 70, 1, 0)
-        self.pendulum.AddPendulum(31, 70, 1, 0)
         self.pendulum.AddPendulum(20, 80, 2, 0)
-        self.pendulum.AddPendulum(20, 80, 1.5, 0)
-        self.pendulum.AddPendulum(21, 70, 1, 0)
-        self.pendulum.AddPendulum(21, 70, 1, 0)
+        self.pendulum.AddPendulum(20, 180, 1.5, 0)
 
         #kwargs['size'] = (300, 200)
         BufferedWindow.__init__(self, *args, **kwargs)
@@ -104,10 +98,8 @@ class SimulationWindow(BufferedWindow):
     def run(self):
         print "Thread started"
 
-        frames = 0
         lastTime = time.clock()
         ticksPerSecond = self.ticksPerSecond
-        count = 0
         tickInterval = 1. / ticksPerSecond
 
         while self.running:
@@ -117,20 +109,6 @@ class SimulationWindow(BufferedWindow):
                 if self.pause != True:
                     self.Tick()
                 lastTime += tickInterval
-                #count += 1
-
-            """if count >= ticksPerSecond:
-                lastTime = currentTime
-                print "FPS: " + str(frames)
-                frames = 0
-                count = 0"""
-
-            # Do the drawing
-            """try:
-                frames += 1
-                self.UpdateDrawing()
-            except:
-                pass"""
 
     def Tick(self):
         self.pendulum.Tick()
@@ -145,8 +123,6 @@ class SimulationWindow(BufferedWindow):
         #drawing the origin
         dc.SetDeviceOrigin(self.originX, self.originY)
         dc.SetUserScale(self.scale, self.scale)
-        #dc.SetBrush(wx.Brush(wx.RED))
-        #dc.SetPen(wx.Pen(wx.RED))
 
         dc.DrawCircle(0, 0, 3)
         dc.DrawLine(-15, 0, 15, 0)
@@ -189,8 +165,8 @@ class VariableEditor(wx.CollapsiblePane):
     def AddVariable(self, variableName=None):
         t = wx.TextCtrl(self.GetPane(), id=wx.ID_ANY, style=wx.BORDER_DEFAULT)
         t.ShowNativeCaret()
-        #if len(self.sizer.GetChildren()) = 1: #If this is not the first child
-         #   self.sizer.AddSpacer(15)
+        if len(self.sizer.GetChildren()) > 0: #If this is not the first inserted textbox
+           self.sizer.AddSpacer(15)
         self.sizer.Add(t, flag=wx.LEFT|wx.RIGHT, border=10)
 
         self.sizer.Layout()
