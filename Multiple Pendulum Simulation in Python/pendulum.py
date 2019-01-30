@@ -98,19 +98,15 @@ class Pendulum:
             dc.SetBrush(wx.Brush(wx.BLACK))
             dc.SetPen(wx.Pen(wx.BLACK))
             dc.DrawLine(nx + tx, ny + ty, nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, ny + cos(self.angles[i]) * self.l[i] * self.scale + ty)
-            #dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
-            #dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
-            dc.SetPen(wx.Pen(wx.Colour(191 - i * 20, 19 + i * 10, 19 + i * 15)))
-            dc.SetBrush(wx.Brush(wx.Colour(191 - i * 20, 19 + 10 * i, 19 + i * 15)))
+            dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
+            dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
             dc.DrawCircle(nx, ny, 13)
             x = nx
             y = ny
             nx += sin(self.angles[i]) * self.l[i] * self.scale
             ny += cos(self.angles[i]) * self.l[i] * self.scale
-        #dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
-        #dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
-        dc.SetPen(wx.Pen(wx.Colour(191, 19, 19)))
-        dc.SetBrush(wx.Brush(wx.Colour(191, 19, 19)))
+        dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
+        dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
         dc.DrawCircle(nx, ny, 13)
 
 
