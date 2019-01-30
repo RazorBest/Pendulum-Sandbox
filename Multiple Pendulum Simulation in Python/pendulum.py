@@ -1,5 +1,5 @@
 from __future__ import division
-from numpy.linalg import det, solve
+from numpy.linalg import solve
 from numpy import zeros, float64
 from math import sin, cos
 from array import array
