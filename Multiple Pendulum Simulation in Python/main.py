@@ -5,7 +5,6 @@ import os
 import time
 import threading
 import wx
-import wx.lib.resizewidget
 import wx.lib.agw.pycollapsiblepane as wxcp
 import re
 from pendulum import Pendulum
@@ -18,8 +17,6 @@ class BufferedWindow(wx.Window):
         # Setting up the event handlers
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_SIZE, self.OnSize)
-
-        #self.OnSize(None)
 
     # This funtion is for subclasses
     def Draw(self, dc):
@@ -39,7 +36,6 @@ class BufferedWindow(wx.Window):
 
     def OnSize(self, e=None):
         size = self.GetClientSize()
-        #size = self.GetParent().GetSize()
         self._Buffer = wx.Bitmap(size)
         self.UpdateDrawing()
         if e != None:
@@ -49,7 +45,7 @@ class BufferedWindow(wx.Window):
         self.Draw(wx.BufferedPaintDC(self, self._Buffer))
         #e.Skip()
 
-    #does the same thing as OnPaint but is called by the client, not from a PaintEvent handler
+    # Does the same thing as OnPaint but is called by the client, not from a PaintEvent handler
     def Paint(self):
         self.Draw(wx.BufferedDC(wx.ClientDC(self), self._Buffer))
 
@@ -166,12 +162,17 @@ class NumberInputCtrl(wx.TextCtrl):
     def OnText(self, e):
         inputText = self.GetValue()
         insertionPointPosition = self.GetInsertionPoint()
-        inputText = re.sub('[^0-9.]', '', inputText) # remove all nondigits characters, except '.'
+
+        # remove all nondigits characters, except '.'
+        inputText = re.sub('[^0-9.]', '', inputText) 
         firstDot = inputText.find('.')
         if firstDot >= 0:
-            inputText = inputText[:firstDot+1] + re.sub('[.]', '', inputText[firstDot+1:]) #remove all '.' characters except the first
+            #remove all '.' characters except the first
+            inputText = inputText[:firstDot+1] + re.sub('[.]', '', inputText[firstDot+1:]) 
         self.ChangeValue(inputText)
-        self.SetInsertionPoint(insertionPointPosition) #ChangeValue() function resets the position of the insertion point to 0, so we have to set it back
+
+        #ChangeValue() function resets the position of the insertion point to 0, so we have to set it back
+        self.SetInsertionPoint(insertionPointPosition) 
 
 class VariableEditor(wxcp.PyCollapsiblePane):
     
@@ -180,6 +181,7 @@ class VariableEditor(wxcp.PyCollapsiblePane):
     def __init__(self, *args, **kwargs):
         wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
 
+        # Set style
         self.SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
 
         self.sizer = wx.FlexGridSizer(3, wx.Size(0, 5))
@@ -213,19 +215,64 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
     def __init__(self, *args, **kwargs):
         wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
 
-        self.SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
+        self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
+        button = self.prepareButton(self.GetLabel())
+        button.SetLabel(self.GetLabel())
+        self.SetButton(button)
+        self.SetExpanderDimensions(0, 0)
+        self.SetLabel('')
 
-        self.sizer = wx.FlexGridSizer(2, wx.Size(0, 5))
+        #self.sizer = wx.FlexGridSizer(2)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.GetPane().SetSizer(self.sizer)
-
+        
+        self.bobCount = 0
         self.AddBob()
+
+        addBobButton = wx.Button(self.GetPane(), label='Add Bob')
+        self.sizer.Add(addBobButton)
 
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
 
+    def prepareButton(self, label=''):
+        button = wx.Button(self, size=wx.Size(2000, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
+        width, height = button.GetSize()
+
+        bitmapInactive = wx.Bitmap(width, height)
+        bitmapCurrent = wx.Bitmap(width, height)
+        dc = wx.MemoryDC()
+
+        # Draw the button in the inactive mode
+        self.drawButton(bitmapInactive, wx.Colour(130, 130, 130), label)
+
+        # Draw the button in the current mode(hover):
+        self.drawButton(bitmapCurrent, wx.Colour(155, 155, 155), label)
+
+        button.SetBitmap(bitmapInactive)
+        button.SetBitmapCurrent(bitmapCurrent)
+
+        return button
+
+    def drawButton(self, bitmap, colour, label=''):
+        width, height = bitmap.GetSize()
+        dc = wx.MemoryDC()
+        dc.SelectObjectAsSource(bitmap)
+        dc.Clear()
+        dc.SetBrush(wx.Brush(colour))
+        dc.SetPen(wx.Pen(colour))
+        dc.DrawRectangle(0, 0, width, height)
+        dc.SetBrush(wx.Brush(wx.BLACK))
+        dc.SetPen(wx.Pen(wx.BLACK))
+        dc.DrawLabel(label, wx.Rect(2, 1, width - 6, height - 15), 
+            alignment=wx.ALIGN_CENTER_HORIZONTAL|wx.ALIGN_TOP)
+
     def AddBob(self):
+        self.bobCount += 1
+
         self.sizer.AddSpacer(5)
 
         t = VariableEditor(self.GetPane(), id=wx.ID_ANY, agwStyle=wxcp.CP_GTK_EXPANDER)
+        t.SetLabel('Bob ' + str(self.bobCount))
         t.Expand()
         self.sizer.Add(t, 0)
 
@@ -238,7 +285,7 @@ class Explorer(wx.Panel):
     def __init__(self, *args, **kwargs):
         wx.Window.__init__(self, *args, **kwargs)
 
-        #Set style
+        # Set style
         self.SetBackgroundColour(wx.Colour(200, 200, 200))
 
         self.countPendulum = 0
@@ -250,23 +297,26 @@ class Explorer(wx.Panel):
         self.button = wx.Button(self, label='+Add Pendulum')
         self.button.SetFont(wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         self.verticalSizer.Add(self.button)
-
-        self.horizontalSizer.Add(self.verticalSizer, proportion=1, flag=wx.EXPAND|wx.RIGHT, border=10)
+        self.horizontalSizer.Add(self.verticalSizer, proportion=1, flag=wx.EXPAND|wx.RIGHT, border=0)
+        self.horizontalSizer.AddSpacer(10)
         self.SetSizer(self.horizontalSizer)
 
         # Set events
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
+        self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnMouseCaptureLost)
+        #self.Bind(wx.EVT_MOUSE_CAPTURE_CHANGED, self.OnMouseCaptureChanged)
 
         self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
 
     def OnButton(self, e):
         self.countPendulum += 1
-        pane = PendulumEditor(self, label='Pendulum ' + str(self.countPendulum))
+        pane = PendulumEditor(self, label='Pendulum ' + str(self.countPendulum), 
+            agwStyle=wxcp.CP_GTK_EXPANDER)
         pane.Expand()
-        self.verticalSizer.Insert(0, pane)
+        self.verticalSizer.Insert(0, pane, flag=wx.EXPAND)
         self.verticalSizer.Layout()
 
     def OnMouseMove(self, e):
@@ -295,9 +345,18 @@ class Explorer(wx.Panel):
         self.GetParent().Layout()
         if self.HasCapture():
             self.ReleaseMouse()
+    
+    def OnMouseLeave(self, e):
+        if not self.sizing:
+            self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
 
     def OnMouseCaptureLost(self, e):
-        self.ReleaseMouse()
+        print 'lost'
+        if self.HasCapture():
+            self.ReleaseMouse()
+
+    def OnMouseCaptureChanged(self, e):
+        print 'changed'
 
 class FillWindow(wx.Window):
     def __init__(self, *args, **kwargs):
@@ -312,6 +371,7 @@ class FillWindow(wx.Window):
         elif stockCursor == wx.CURSOR_SIZING:
             self.GetParent().movingState = True
 
+    #Send all the mouse events to the parent i.e the SimulationWindow
     def OnMouse(self, e):
         self.GetParent().SafelyProcessEvent(e)
         e.Skip()
@@ -360,44 +420,19 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.playTool)
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.pauseTool)
 
-        self.window = SimulationWindow(self, size=(width, height))
+        self.window = SimulationWindow(self, size=(width, 0))
         self.fillWindow = FillWindow(self.window, style=wx.TRANSPARENT_WINDOW)
 
-        explorerPanel = Explorer(self.window, size=(150, height), style=wx.BORDER_SIMPLE)
-        #treectrl = wx.TreeCtrl(self.window)
-        #root = treectrl.AddRoot('Adsa')
-        #treectrl.AppendItem(root, 'adsa1')
-        #treectrl.AppendItem(root, 'adsa2')
-        #treectrl.AppendItem(root, 'adsa3')
+        explorerPanel = Explorer(self.window, size=(150, 0), style=wx.BORDER_SIMPLE)
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         #explorerPanel.SetSize(150, height)
-        windowSizer.Add(explorerPanel)
+        windowSizer.Add(explorerPanel, 0, wx.EXPAND)
 
         windowSizer.Add(self.fillWindow, 1, wx.EXPAND)
-        #flagsExpand = wx.SierFlags(1)
-        #windowSizer.Add(self.fillWindow, wx.EXPAND)
         self.window.SetSizer(windowSizer)
-
-        #window.SetPosition((0, 0))
-        #explorerPanel = wx.Panel(self, size=(200,200))
-
-        #sizer = wx.BoxSizer(wx.HORIZONTAL)
-        #sizer.Add(explorerPanel, 0)
-        #sizer.Add(window)
-        #self.SetSizer(sizer)
-        #self.SetAutoLayout(True)
-        #sizer.Fit(window)
 
         self.Centre()
         self.Show(True)
-
-    """def UpdateDrawing(self): old thing
-        dc = wx.MemoryDC()
-        dc.SelectObject(self._Buffer)
-        self.Draw(dc)
-        del dc
-        self.Refresh(eraseBackground=False)
-        self.Update()"""
 
     def OnChangeCursor(self, e):
         id = e.GetId()
