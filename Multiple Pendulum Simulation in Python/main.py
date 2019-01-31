@@ -80,10 +80,20 @@ class SimulationWindow(BufferedWindow):
 
         self.timer = wx.Timer(self)
 
+        self.validators = {}
+        self.pendulums = {}
+
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
         wx.CallLater(2000, self.StartThread)
 
         print "SimulationWindow initiated"
+
+    def AddValidators(self, validatorList, pendulumId, bobId):
+        """validatorList is a dictionary
+        """
+        if not pendulumId in self.validators:
+            self.validators[pendulumId] = {}
+        self.validators[pendulumId][bobId] = validatorList.copy()
 
     def StartThread(self):
         self.timer.Start(1000. / 200)
@@ -152,51 +162,95 @@ class SimulationWindow(BufferedWindow):
             self.originY -= (my - self.originY) * mag / float(self.scale)
             self.scale += mag
 
+class NumberValidator(wx.Validator):
+    def __init__(self, *args, **kwargs):
+        wx.Validator.__init__(self, *args, **kwargs)
+
+        self.number = None
+
+    def Clone(self):
+        """Every validator must implement the Clone() method
+        """
+        return NumberValidator()
+    
+    def Validate(self, window):
+        """ Validate the contents of a given text control
+        """
+        textCtrl = self.GetWindow()
+        text = textCtrl.GetValue()
+
+        insertionPointPosition = textCtrl.GetInsertionPoint()
+
+        # remove all nondigits characters, except '.'
+        text = re.sub('[^0-9.]', '', text) 
+        firstDot = text.find('.')
+        if firstDot == 0:
+            text = '0' + text
+            firstDot += 1
+            insertionPointPosition += 1
+        if firstDot >= 0:
+            #remove all '.' characters except the first
+            text = text[:firstDot+1] + re.sub('[.]', '', text[firstDot+1:]) 
+        textCtrl.ChangeValue(text)
+
+        #ChangeValue() function resets the position of the insertion point to 0, so we have to set it back
+        textCtrl.SetInsertionPoint(insertionPointPosition)
+
+        if len(text) == 0:
+            return False
+
+        return True
+
+    def TransferToWindow(self):
+        return True
+
+    def TransferFromWindow(self):
+        textCtrl = self.GetWindow()
+        self.number = float(textCtrl.GetValue())
+        return True
+    
+    def GetValue(self):
+        return self.number
+
+
 class NumberInputCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwargs):
         wx.TextCtrl.__init__(self, *args, **kwargs)
 
         self.Bind(wx.EVT_TEXT, self.OnText)
-        self.Bind(wx.KILL_FOCUS, self.OnKillFocus)
+        self.Bind(wx.EVT_KILL_FOCUS, self.OnKillFocus)
 
     # Export the value
     def OnKillFocus(self, e):
-
+        pass
 
     #This function will be called when the user inserts/changes a character
     def OnText(self, e):
-        inputText = self.GetValue()
-        insertionPointPosition = self.GetInsertionPoint()
-
-        # remove all nondigits characters, except '.'
-        inputText = re.sub('[^0-9.]', '', inputText) 
-        firstDot = inputText.find('.')
-        if firstDot >= 0:
-            #remove all '.' characters except the first
-            inputText = inputText[:firstDot+1] + re.sub('[.]', '', inputText[firstDot+1:]) 
-        self.ChangeValue(inputText)
-
-        #ChangeValue() function resets the position of the insertion point to 0, so we have to set it back
-        self.SetInsertionPoint(insertionPointPosition) 
+        validator = self.GetValidator()
+        if validator.Validate(self):
+            validator.TransferFromWindow()
 
 class VariableEditor(wxcp.PyCollapsiblePane):
     
     variableNames = ['m', 'l', 'a', 'v']
 
     def __init__(self, *args, **kwargs):
+        self.bobId = kwargs['bobId']
+        del kwargs['bobId']
         wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
 
         # Set style
         self.SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
 
         # This sizer will need 3 columns: one for the spacer,
-        #  one for the variable name and one for the textctrl(input field)
+        #   one for the variable name and one for the textctrl(input field)
         self.sizer = wx.FlexGridSizer(3, wx.Size(0, 5))
         self.GetPane().SetSizer(self.sizer)
 
-        # self.variableData = 
-
+        self.validators = dict.fromkeys(self.variableNames)
         self.SetVariables()
+        simulationWindow = self.GetParent().GetParent().GetParent().GetParent()
+        self.SendValidatorsToWindow(simulationWindow)
 
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
 
@@ -204,13 +258,20 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         for variableName in self.variableNames:
             self.AddVariable(variableName)
 
+    def SendValidatorsToWindow(self, window):
+        pendulumId = self.GetGrandParent().pendulumId
+        window.AddValidators(self.validators, pendulumId, self.bobId)
+
     def AddVariable(self, variableName):
         self.sizer.AddSpacer(5)
 
-        label = wx.StaticText(self.GetPane(), id=wx.ID_ANY, label=variableName + ': ')
+        label = wx.StaticText(self.GetPane(), label=variableName + ': ')
         self.sizer.Add(label, 0)
 
-        t = NumberInputCtrl(self.GetPane(), id=wx.ID_ANY, style=wx.BORDER_DEFAULT)
+        validator = NumberValidator()
+        self.validators[variableName] = validator
+        t = NumberInputCtrl(self.GetPane(), 
+            style=wx.BORDER_DEFAULT, validator=validator)
         t.ShowNativeCaret()
         t.SetMaxLength(20)
         self.sizer.Add(t, 0)
@@ -222,6 +283,8 @@ class VariableEditor(wxcp.PyCollapsiblePane):
 
 class PendulumEditor(wxcp.PyCollapsiblePane):
     def __init__(self, *args, **kwargs):
+        self.pendulumId = kwargs['pendulumId']
+        del kwargs['pendulumId']
         wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
@@ -285,7 +348,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
     def AddBob(self):
         self.bobCount += 1
 
-        t = VariableEditor(self.GetPane(), id=wx.ID_ANY, agwStyle=wxcp.CP_GTK_EXPANDER)
+        t = VariableEditor(self.GetPane(), id=wx.ID_ANY, agwStyle=wxcp.CP_GTK_EXPANDER, bobId=self.bobCount)
         t.SetLabel('Bob ' + str(self.bobCount))
         t.Expand()
         self.sizer.Insert(len(self.sizer.GetChildren()) - 1, t, 0)
@@ -335,7 +398,7 @@ class Explorer(wx.Panel):
     def OnButton(self, e):
         self.countPendulum += 1
         pane = PendulumEditor(self, label='Pendulum ' + str(self.countPendulum), 
-            agwStyle=wxcp.CP_GTK_EXPANDER)
+            agwStyle=wxcp.CP_GTK_EXPANDER, pendulumId=self.countPendulum)
         pane.Expand()
         self.verticalSizer.Insert(0, pane, flag=wx.EXPAND)
         self.verticalSizer.Layout()
