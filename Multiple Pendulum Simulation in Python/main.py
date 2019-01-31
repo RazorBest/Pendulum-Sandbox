@@ -157,6 +157,11 @@ class NumberInputCtrl(wx.TextCtrl):
         wx.TextCtrl.__init__(self, *args, **kwargs)
 
         self.Bind(wx.EVT_TEXT, self.OnText)
+        self.Bind(wx.KILL_FOCUS, self.OnKillFocus)
+
+    # Export the value
+    def OnKillFocus(self, e):
+
 
     #This function will be called when the user inserts/changes a character
     def OnText(self, e):
@@ -184,8 +189,12 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         # Set style
         self.SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
 
+        # This sizer will need 3 columns: one for the spacer,
+        #  one for the variable name and one for the textctrl(input field)
         self.sizer = wx.FlexGridSizer(3, wx.Size(0, 5))
         self.GetPane().SetSizer(self.sizer)
+
+        # self.variableData = 
 
         self.SetVariables()
 
@@ -222,16 +231,20 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.SetExpanderDimensions(0, 0)
         self.SetLabel('')
 
-        #self.sizer = wx.FlexGridSizer(2)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.GetPane().SetSizer(self.sizer)
         
         self.bobCount = 0
-        self.AddBob()
 
         addBobButton = wx.Button(self.GetPane(), label='Add Bob')
         self.sizer.Add(addBobButton)
 
+        # Only add bob after adding the addBobButton
+        self.AddBob()
+
+        self.sizer.Layout()
+
+        self.Bind(wx.EVT_BUTTON, self.OnAddBobButton, addBobButton)
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
 
     def prepareButton(self, label=''):
@@ -265,18 +278,20 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         dc.SetPen(wx.Pen(wx.BLACK))
         dc.DrawLabel(label, wx.Rect(2, 1, width - 6, height - 15), 
             alignment=wx.ALIGN_CENTER_HORIZONTAL|wx.ALIGN_TOP)
+    
+    def OnAddBobButton(self, e):
+        self.AddBob()
 
     def AddBob(self):
         self.bobCount += 1
 
-        self.sizer.AddSpacer(5)
-
         t = VariableEditor(self.GetPane(), id=wx.ID_ANY, agwStyle=wxcp.CP_GTK_EXPANDER)
         t.SetLabel('Bob ' + str(self.bobCount))
         t.Expand()
-        self.sizer.Add(t, 0)
+        self.sizer.Insert(len(self.sizer.GetChildren()) - 1, t, 0)
 
         self.sizer.Layout()
+        self.GetParent().Layout()
 
     def OnPaneChanged(self, e):
         self.GetParent().GetSizer().Layout()
@@ -297,6 +312,12 @@ class Explorer(wx.Panel):
         self.button = wx.Button(self, label='+Add Pendulum')
         self.button.SetFont(wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         self.verticalSizer.Add(self.button)
+        
+        self.verticalSizer.Prepend(0, 4, 0)
+        staticLine = wx.StaticLine(self, size=(200, 3))
+        self.verticalSizer.Prepend(staticLine)
+        self.verticalSizer.Prepend(0, 4, 0)
+        
         self.horizontalSizer.Add(self.verticalSizer, proportion=1, flag=wx.EXPAND|wx.RIGHT, border=0)
         self.horizontalSizer.AddSpacer(10)
         self.SetSizer(self.horizontalSizer)
@@ -422,10 +443,10 @@ class MainFrame(wx.Frame):
 
         self.window = SimulationWindow(self, size=(width, 0))
         self.fillWindow = FillWindow(self.window, style=wx.TRANSPARENT_WINDOW)
+        #self.fillWindow.SetMinSize(wx.Size(100, 100))
 
         explorerPanel = Explorer(self.window, size=(150, 0), style=wx.BORDER_SIMPLE)
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
-        #explorerPanel.SetSize(150, height)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
 
         windowSizer.Add(self.fillWindow, 1, wx.EXPAND)
