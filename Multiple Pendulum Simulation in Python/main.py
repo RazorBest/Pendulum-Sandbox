@@ -6,12 +6,14 @@ import time
 import threading
 import wx
 import wx.lib.agw.pycollapsiblepane as wxcp
+import wx.lib.newevent
+import wx.lib.scrolledpanel as wxsp
 import re
 from pendulum import Pendulum
 
 class BufferedWindow(wx.Window):
     def __init__(self, *args, **kwargs):
-        kwargs['style'] = kwargs.setdefault('style', wx.NO_FULL_REPAINT_ON_RESIZE) | wx.NO_FULL_REPAINT_ON_RESIZE
+        kwargs['style'] = kwargs.setdefault('style', wx.NO_FULL_REPAINT_ON_RESIZE | wx.NO_FULL_REPAINT_ON_RESIZE)
         wx.Window.__init__(self, *args, **kwargs)
 
         # Setting up the event handlers
@@ -27,12 +29,7 @@ class BufferedWindow(wx.Window):
         dc.SelectObject(self._Buffer)
         self.Draw(dc)
         del dc
-        #self.Refresh(eraseBackground=False, rect=rect)
-        #self.Update()
         wx.CallAfter(self.Paint)
-        #self.Draw(wx.BufferedDC(wx.ClientDC(self), self._Buffer))
-
-        #self.Layout()
 
     def OnSize(self, e=None):
         size = self.GetClientSize()
@@ -54,15 +51,18 @@ class SimulationWindow(BufferedWindow):
 
     def __init__(self, *args, **kwargs):
         self.ticksPerSecond = 500
-        self.pendulum = Pendulum(200, 100, 1. / self.ticksPerSecond)
-        self.pendulum.AddPendulum(20, 80, 2, 0)
-        self.pendulum.AddPendulum(20, 180, 1.5, 0)
+        #self.pendulum = Pendulum(200, 100, 1. / self.ticksPerSecond)
+        #self.pendulum.AddBob(20, 80, 2, 0)
+        #self.pendulum.AddBob(20, 180, 1.5, 0)
 
         #kwargs['size'] = (300, 200)
+        kwargs['name'] = 'simulationWindow'
         BufferedWindow.__init__(self, *args, **kwargs)
 
         self.running = False
         self.SetBackgroundColour(wx.WHITE)
+
+        self.pendulumHandler = PendulumHandler()
 
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
@@ -76,24 +76,16 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseY = None
 
         self.movingState = False
-        self.pause = False
+        self.pause = True
+        self.started = False
 
         self.timer = wx.Timer(self)
 
-        self.validators = {}
-        self.pendulums = {}
-
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
+
         wx.CallLater(2000, self.StartThread)
 
         print "SimulationWindow initiated"
-
-    def AddValidators(self, validatorList, pendulumId, bobId):
-        """validatorList is a dictionary
-        """
-        if not pendulumId in self.validators:
-            self.validators[pendulumId] = {}
-        self.validators[pendulumId][bobId] = validatorList.copy()
 
     def StartThread(self):
         self.timer.Start(1000. / 200)
@@ -118,7 +110,7 @@ class SimulationWindow(BufferedWindow):
                 lastTime += tickInterval
 
     def Tick(self):
-        self.pendulum.Tick()
+        self.pendulumHandler.Tick()
 
     def OnTimer(self, e):
         self.UpdateDrawing()
@@ -135,11 +127,19 @@ class SimulationWindow(BufferedWindow):
         dc.DrawLine(-15, 0, 15, 0)
         dc.DrawLine(0, -15, 0, 15)
 
-        self.pendulum.Draw(dc)
+        self.pendulumHandler.Draw(dc)
 
     def SetPause(self, pause):
         self.pause = pause
-
+        if pause == False:
+            self.started = True
+    
+    def Reload(self):
+        self.pause = True
+        self.started = False
+        self.pendulumHandler.ReleaseStack()
+        self.pendulumHandler.SendParameters()
+    
     def OnMouseMove(self, e):
         if self.movingState == False:
             return
@@ -161,6 +161,129 @@ class SimulationWindow(BufferedWindow):
             self.originX -= (mx - self.originX) * mag / float(self.scale)
             self.originY -= (my - self.originY) * mag / float(self.scale)
             self.scale += mag
+
+    def GetPendulumHandler(self):
+        return self.pendulumHandler
+
+    def AddPendulum(self):
+        return self.pendulumHandler.AddPendulum((300 - self.originX) / self.scale, (200 - self.originY) / self.scale, 1. / self.ticksPerSecond)
+
+    def IsPaused(self):
+        return self.pause
+
+    def IsStarted(self):
+        return self.started
+
+class DataHolder():
+    def __init__(self, val=None):
+        self.val = val
+
+    def Set(self, val):
+        self.val = val 
+
+    def Get(self):
+        return self.val
+
+class PendulumHandler():
+    """This class has a list of all the pendulums
+    You can add/delete a pendulum 
+        and you can call tick/draw method on all pendulums
+    """
+
+    defaultVariableList = {'m':10, 'l':100, 'a':0, 'v':0}
+
+    def __init__(self):
+        self.pendulumDict = {}
+        self.pendulumStack = {}
+        self.bobStack = {}
+        self.variableList = {}
+        self.linker = {}
+        self.pendulumId = 0
+        self.bobId = 0
+        self.timeInterval = 1000
+
+        self.simulationWindow = wx.FindWindowByName('simulationWindow')
+
+    def AddPendulum(self, x, y, timeInterval=None):
+        if timeInterval == None:
+            timeInterval = self.timeInterval
+        self.pendulumId += 1
+        if not self.simulationWindow.IsStarted():
+            self.pendulumDict[self.pendulumId] = Pendulum(x, y, timeInterval)
+        else:
+            self.pendulumStack[self.pendulumId] = Pendulum(x, y, timeInterval)
+        self.variableList[self.pendulumId] = dict()
+
+        return self.pendulumId
+
+    def AddBob(self, pendulumId):
+        self.bobId += 1
+        if not self.simulationWindow.IsStarted():
+            self.pendulumDict[pendulumId].AddBob(self.bobId)
+        elif self.pendulumDict.get(pendulumId) != None:
+            self.bobStack.setdefault(pendulumId, [])
+            self.bobStack[pendulumId].append(self.bobId) 
+        else:
+            self.pendulumStack[pendulumId].AddBob(self.bobId)
+        self.variableList[pendulumId][self.bobId] = self.DataDict(self.defaultVariableList)
+
+        return self.bobId
+
+    def RemoveBob(self, pendulumId, bobId):
+        if self.pendulumDict.get(pendulumId) != None:
+            self.pendulumDict[pendulumId].RemoveBob(bobId)
+        else:
+            self.pendulumStack[pendulumId].RemoveBob(bobId)
+        del self.variableList[pendulumId][bobId]
+
+    def DataDict(self, dct):
+        new_dict = dict()
+        for key, value in dct.iteritems():
+            new_dict[key] = DataHolder(value)
+        return new_dict
+
+    def SetTimeInterval(self, timeInterval):
+        """You can call this funtion before
+            adding a sequence pendulums with the same timeInterval
+        """
+        self.timeInterval = timeInterval
+
+    def Link(self, obj, pendulumId, bobId, name):
+        self.linker[obj] = self.variableList[pendulumId][bobId][name]
+
+    def SetParameter(self, pendulumId, bobId, name, value):
+        self.variableList[pendulumId][bobId][name].val = value
+
+    def SetParameter(self, obj, value):
+        self.linker[obj].val = value
+
+    def SendParameters(self):
+        for pendulumId, pendulum in self.pendulumDict.items():
+            for bobId, parameters in self.variableList[pendulumId].items():
+                pendulum.SetBob(
+                    bobId,
+                    parameters['m'].val,
+                    parameters['l'].val,
+                    parameters['a'].val,
+                    parameters['v'].val)
+    
+    def ReleaseStack(self):
+        for pendulumId, pendulum in self.pendulumStack.items():
+            self.pendulumDict[pendulumId] = pendulum
+        self.pendulumStack = {}
+        for pendulumId, bobList in self.bobStack.items():
+            for bobId in bobList:
+                self.pendulumDict[pendulumId].AddBob(bobId) 
+        self.bobStack = {}
+
+    def Tick(self):
+        for pendulum in self.pendulumDict.values():
+            pendulum.Tick()
+
+    def Draw(self, dc):
+        for pendulum in self.pendulumDict.values():
+            pendulum.Draw(dc)
+
 
 class NumberValidator(wx.Validator):
     def __init__(self, *args, **kwargs):
@@ -215,28 +338,34 @@ class NumberValidator(wx.Validator):
 
 class NumberInputCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwargs):
+        self.variableName = kwargs['variableName']
+        del kwargs['variableName']
         wx.TextCtrl.__init__(self, *args, **kwargs)
 
         self.Bind(wx.EVT_TEXT, self.OnText)
-        self.Bind(wx.EVT_KILL_FOCUS, self.OnKillFocus)
 
-    # Export the value
-    def OnKillFocus(self, e):
-        pass
+        pendulumId = self.GetGrandParent().GetGrandParent().pendulumId
+        bobId = self.GetGrandParent().bobId
+        self.simulationWindow = wx.FindWindowByName('simulationWindow')
+        self.pendulumHandler = self.simulationWindow.GetPendulumHandler()
+        self.pendulumHandler.Link(self, pendulumId, bobId, self.variableName)
 
-    #This function will be called when the user inserts/changes a character
-    def OnText(self, e):
+        self.OnText()
+
+    #This function will be called when the user inserts/changes/deletes a character
+    def OnText(self, e=None):
         validator = self.GetValidator()
         if validator.Validate(self):
-            validator.TransferFromWindow()
+            self.pendulumHandler.SetParameter(self, float(self.GetValue()))
+            if not self.simulationWindow.IsStarted():
+                self.pendulumHandler.SendParameters()
 
 class VariableEditor(wxcp.PyCollapsiblePane):
     
     variableNames = ['m', 'l', 'a', 'v']
+    defaultValues = [10, 100, 0, 0]
 
     def __init__(self, *args, **kwargs):
-        self.bobId = kwargs['bobId']
-        del kwargs['bobId']
         wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
 
         # Set style
@@ -247,22 +376,21 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         self.sizer = wx.FlexGridSizer(3, wx.Size(0, 5))
         self.GetPane().SetSizer(self.sizer)
 
+        self.pendulumId = self.GetGrandParent().pendulumId
+        self.pendulumHandler = wx.FindWindowByName('simulationWindow').GetPendulumHandler()
+        self.bobId = self.pendulumHandler.AddBob(self.pendulumId)
+
         self.validators = dict.fromkeys(self.variableNames)
         self.SetVariables()
-        simulationWindow = self.GetParent().GetParent().GetParent().GetParent()
-        self.SendValidatorsToWindow(simulationWindow)
 
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
 
     def SetVariables(self):
-        for variableName in self.variableNames:
-            self.AddVariable(variableName)
+        for variableName, value in zip(self.variableNames, self.defaultValues):
+            self.AddVariable(variableName, value)
 
-    def SendValidatorsToWindow(self, window):
-        pendulumId = self.GetGrandParent().pendulumId
-        window.AddValidators(self.validators, pendulumId, self.bobId)
-
-    def AddVariable(self, variableName):
+    def AddVariable(self, variableName, value=''):
         self.sizer.AddSpacer(5)
 
         label = wx.StaticText(self.GetPane(), label=variableName + ': ')
@@ -270,21 +398,29 @@ class VariableEditor(wxcp.PyCollapsiblePane):
 
         validator = NumberValidator()
         self.validators[variableName] = validator
-        t = NumberInputCtrl(self.GetPane(), 
-            style=wx.BORDER_DEFAULT, validator=validator)
+        t = NumberInputCtrl(self.GetPane(),
+            value=str(value), 
+            style=wx.BORDER_DEFAULT, 
+            validator=validator,
+            variableName=variableName
+        )
         t.ShowNativeCaret()
         t.SetMaxLength(20)
         self.sizer.Add(t, 0)
 
-        self.sizer.Layout()
+        self.GetParent().GetParent().GetParent().SendSizeEvent()
 
     def OnPaneChanged(self, e):
-        self.GetParent().GetParent().GetParent().Layout()
+        self.GetParent().GetParent().GetParent().SendSizeEvent()
+
+    def GetBobId(self):
+        return self.bobId
+
+    def OnClose(self, e):
+        self.pendulumHandler.RemoveBob(self.pendulumId, self.bobId)
 
 class PendulumEditor(wxcp.PyCollapsiblePane):
     def __init__(self, *args, **kwargs):
-        self.pendulumId = kwargs['pendulumId']
-        del kwargs['pendulumId']
         wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
@@ -298,9 +434,17 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.GetPane().SetSizer(self.sizer)
         
         self.bobCount = 0
+        self.bobList = []
+        self.bobDict = {}
 
         addBobButton = wx.Button(self.GetPane(), label='Add Bob')
         self.sizer.Add(addBobButton)
+
+        simulationWindow = wx.FindWindowByName('simulationWindow')
+        self.pendulumId = simulationWindow.AddPendulum()
+        self.pendulumHandler = simulationWindow.GetPendulumHandler()
+
+        self.sizersDict = {}
 
         # Only add bob after adding the addBobButton
         self.AddBob()
@@ -311,7 +455,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
 
     def prepareButton(self, label=''):
-        button = wx.Button(self, size=wx.Size(2000, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
+        button = wx.Button(self, size=wx.Size(1000, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
         width, height = button.GetSize()
 
         bitmapInactive = wx.Bitmap(width, height)
@@ -348,60 +492,112 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
     def AddBob(self):
         self.bobCount += 1
 
-        t = VariableEditor(self.GetPane(), id=wx.ID_ANY, agwStyle=wxcp.CP_GTK_EXPANDER, bobId=self.bobCount)
-        t.SetLabel('Bob ' + str(self.bobCount))
+        t = VariableEditor(self.GetPane(), id=wx.ID_ANY, 
+            label='Bob ' + str(self.bobCount),
+            agwStyle=wxcp.CP_GTK_EXPANDER)
         t.Expand()
-        self.sizer.Insert(len(self.sizer.GetChildren()) - 1, t, 0)
+        bobId = t.GetBobId()
+        self.bobDict[bobId] = t
+        self.bobList.append(t)
 
-        self.sizer.Layout()
-        self.GetParent().Layout()
+        closeButton = wx.Button(self.GetPane(), id=bobId, size=(20, 20), label='t')
+
+        self.Bind(wx.EVT_BUTTON, self.OnCloseButton, closeButton)
+
+        sizer1 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer2 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer1.Add(closeButton)
+        sizer1.AddStretchSpacer(1)
+        sizer2.Add(t, 0)
+        sizer2.Add(sizer1, 1, wx.EXPAND)
+
+        self.sizersDict[bobId] = sizer2
+
+        self.sizer.Insert(len(self.sizer.GetChildren()) - 1, sizer2, 0)
+
+        self.GetParent().SendSizeEvent()
+
+    def OnCloseButton(self, e):
+        self.bobCount -= 1
+
+        bobId = e.GetId()
+
+        self.bobDict[bobId].Close()
+        #self.pendulumHandler.RemoveBob(self.pendulumId, bobId)
+        sizer = self.sizersDict[bobId]
+        for child in sizer.GetChildren():
+            child.DeleteWindows()
+        self.sizer.Remove(sizer)
+
+        bob = self.bobDict[bobId]
+        del self.bobDict[bobId]
+        self.bobList.remove(bob)
+        
+        self.ResetBobIndexes()
+
+        self.InvalidateBestSize()
+        self.GetParent().SendSizeEvent()
+
+    def ResetBobIndexes(self):
+        for i in range(len(self.bobList)):
+            self.bobList[i].SetLabel('Bob ' + str(i + 1))
 
     def OnPaneChanged(self, e):
-        self.GetParent().GetSizer().Layout()
+        self.GetParent().SendSizeEvent()
 
-class Explorer(wx.Panel):
+class Explorer(wx.ScrolledWindow):
     def __init__(self, *args, **kwargs):
-        wx.Window.__init__(self, *args, **kwargs)
+        wx.ScrolledWindow.__init__(self, *args, **kwargs)
 
         # Set style
         self.SetBackgroundColour(wx.Colour(200, 200, 200))
+        self.SetScrollbars(0, 20, 0, 50, xPos=20, yPos=0)
 
-        self.countPendulum = 0
-        self.sizing = False
+        self.pendulumCount = 0
 
-        self.horizontalSizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.verticalSizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
 
         self.button = wx.Button(self, label='+Add Pendulum')
-        self.button.SetFont(wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        self.verticalSizer.Add(self.button)
+        self.button.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self.sizer.Add(self.button)
         
-        self.verticalSizer.Prepend(0, 4, 0)
-        staticLine = wx.StaticLine(self, size=(200, 3))
-        self.verticalSizer.Prepend(staticLine)
-        self.verticalSizer.Prepend(0, 4, 0)
+        self.sizer.Prepend(0, 4, 0)
+        self.sizer.Prepend(wx.StaticLine(self, size=(200, 3)), 0, wx.EXPAND)
+        self.sizer.Prepend(0, 4, 0)
         
-        self.horizontalSizer.Add(self.verticalSizer, proportion=1, flag=wx.EXPAND|wx.RIGHT, border=0)
-        self.horizontalSizer.AddSpacer(10)
-        self.SetSizer(self.horizontalSizer)
+        self.SetSizer(self.sizer)
 
-        # Set events
+        self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
+
+    def OnButton(self, e):
+        self.pendulumCount += 1
+        pane = PendulumEditor(self, 
+            label='Pendulum ' + str(self.pendulumCount), 
+            agwStyle=wxcp.CP_GTK_EXPANDER)
+        pane.Expand()
+        self.sizer.Prepend(pane, flag=wx.EXPAND)
+        self.Refresh()
+        self.Layout()
+
+class UserResizableWindow(wx.Window):
+    def __init__(self, *args, **kwargs):
+        wx.Window.__init__(self, *args, **kwargs)
+
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        explorer = Explorer(self, size=(180, 0))
+        self.SetBackgroundColour(wx.Colour(180, 180, 180))
+        sizer.Add(explorer, 1, wx.EXPAND)
+        sizer.AddSpacer(10)
+        self.SetSizer(sizer)
+        self.SetMinSize(explorer.GetSize())
+
+        self.sizing = False
+
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnMouseCaptureLost)
-        #self.Bind(wx.EVT_MOUSE_CAPTURE_CHANGED, self.OnMouseCaptureChanged)
-
-        self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
-
-    def OnButton(self, e):
-        self.countPendulum += 1
-        pane = PendulumEditor(self, label='Pendulum ' + str(self.countPendulum), 
-            agwStyle=wxcp.CP_GTK_EXPANDER, pendulumId=self.countPendulum)
-        pane.Expand()
-        self.verticalSizer.Insert(0, pane, flag=wx.EXPAND)
-        self.verticalSizer.Layout()
 
     def OnMouseMove(self, e):
         x = e.GetX()
@@ -493,6 +689,8 @@ class MainFrame(wx.Frame):
         toolbar.AddSeparator()
         self.playTool = toolbar.AddRadioTool(wx.ID_ANY, 'Play', wx.Bitmap('icons/play.png'))
         self.pauseTool = toolbar.AddRadioTool(wx.ID_ANY, 'Pause', wx.Bitmap('icons/pause.png'))
+        toolbar.ToggleTool(self.pauseTool.GetId(), True)
+        self.reloadTool = toolbar.AddTool(wx.ID_ANY, 'Reload', wx.Bitmap('icons/reload.png'))
         toolbar.Realize()
 
         # Set events
@@ -503,12 +701,12 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.OnChangeCursor, self.moveTool)
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.playTool)
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.pauseTool)
+        self.Bind(wx.EVT_TOOL, self.OnReload, self.reloadTool)
 
         self.window = SimulationWindow(self, size=(width, 0))
         self.fillWindow = FillWindow(self.window, style=wx.TRANSPARENT_WINDOW)
-        #self.fillWindow.SetMinSize(wx.Size(100, 100))
 
-        explorerPanel = Explorer(self.window, size=(150, 0), style=wx.BORDER_SIMPLE)
+        explorerPanel = UserResizableWindow(self.window, size=(150, 0), style=wx.BORDER_SIMPLE)
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
 
@@ -533,6 +731,10 @@ class MainFrame(wx.Frame):
             self.window.SetPause(False)
         elif id == self.pauseTool.GetId():
             self.window.SetPause(True)
+
+    def OnReload(self, e):
+        self.GetToolBar().ToggleTool(self.pauseTool.GetId(), True)
+        self.window.Reload()
 
     def OnAbout(self, e):
         # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets
