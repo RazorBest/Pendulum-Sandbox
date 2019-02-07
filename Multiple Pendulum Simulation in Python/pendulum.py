@@ -2,7 +2,7 @@ from __future__ import division
 from numpy.linalg import solve
 from numpy import zeros, float64
 from math import sin, cos
-#from array import array
+from math import sqrt
 import wx
 import time
 
@@ -22,6 +22,9 @@ class Pendulum():
         self.l = []
         self.deltaT = timeInterval
         self.scale = 100
+        self.radius = 13
+
+        self.selected = False
 
         self.A = None
         self.B = None
@@ -116,6 +119,62 @@ class Pendulum():
             self.vels[i] += acc[i] * self.deltaT
             self.angles[i] += self.vels[i] * self.deltaT
 
+    def PendulumCollision(self, mx, my):
+        """Check if the cursor at the coordinates (mx, my) is over the pendulum
+                (over any bob or its rods)
+        """
+        if self.bobCount == 0:
+            return
+        x = self.x
+        y = self.y
+
+        if self.BobCollision(mx, my, x, y, self.radius):
+            return True
+
+        for i in range(0, self.bobCount):
+            nx = x + sin(self.angles[0]) * self.l[0] * self.scale
+            ny = y + cos(self.angles[0]) * self.l[0] * self.scale
+            if self.RodCollision(mx, my, x, y, nx, ny, 5):
+                return True
+            if self.BobCollision(mx, my, nx, ny, self.radius):
+                return True            
+            x = nx
+            y = ny
+        
+        return False
+
+    def Distance(self, x1, y1, x2, y2):
+        return sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+    def BobCollision(self, mx, my, x, y, r):
+        return self.Distance(mx, my, x, y) <= r
+
+    def RodCollision(self, mx, my, x1, y1, x2, y2, l):
+        p = self.GetRect(x1, y1, x2, y2, l)
+
+        for i in range(4):
+            d = (p[(i + 1) % 4][0] - p[i][0]) * (my - p[i][1]) - (mx - p[i][0]) * (p[(i + 1) % 4][1] - p[i][1])
+            if d > 0:
+                return False
+        
+        return True
+
+    def GetRect(self, x1, y1, x2, y2, l):
+        l1 = self.Distance(x1, y1, x2, y2)
+        dx = 0
+        if y1 != y2:
+            dx = l / sqrt(1 + (x2 - x1)**2 / abs(y2 - y1)**2)
+        dy = 0
+        if x1 != x2:
+            dy = l / sqrt(1 + (y2 - y1)**2 / abs(x2 - x1)**2)
+        p = 4*[(0, 0)]
+        p[0] = (x1 - dx, y1 - dy)
+        p[1] = (x2 - dx, y2 - dy)
+        p[2] = (x2 + dx, y2 + dy) 
+        p[3] = (x1 + dx, y1 + dy)
+
+        return p
+
     def Draw(self, dc, tx=0, ty=0):
         if self.bobCount == 0:
             return
@@ -123,26 +182,52 @@ class Pendulum():
         x = self.x
         y = self.y
 
+        nx = x + sin(self.angles[0]) * self.l[0] * self.scale
+        ny = y + cos(self.angles[0]) * self.l[0] * self.scale 
+        if self.selected:
+            dc.SetBrush(wx.Brush(wx.Colour(148, 114, 249)))
+            dc.SetPen(wx.Pen(wx.Colour(148, 114, 249)))
+            #dc.DrawLine(x, y, nx, ny)
+            dc.DrawCircle(x, y, self.radius + 1)
         dc.SetBrush(wx.Brush(wx.BLACK))
         dc.SetPen(wx.Pen(wx.BLACK))
-        nx = x + sin(self.angles[0]) * self.l[0] * self.scale
-        ny = y + cos(self.angles[0]) * self.l[0] * self.scale
         dc.DrawLine(x, y, nx, ny)
-        dc.DrawCircle(x, y, 10)
+        dc.DrawCircle(x, y, self.radius - 3)
         for i in range(1, self.bobCount):
+
             dc.SetBrush(wx.Brush(wx.BLACK))
             dc.SetPen(wx.Pen(wx.BLACK))
             dc.DrawLine(nx + tx, ny + ty, nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, ny + cos(self.angles[i]) * self.l[i] * self.scale + ty)
+            if self.selected:
+                dc.SetBrush(wx.Brush(wx.Colour(148, 114, 249)))
+                dc.SetPen(wx.Pen(wx.Colour(148, 114, 249)))
+                #dc.DrawLine(x, y, nx, ny)
+                dc.DrawCircle(x, y, self.radius + 5)
             dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
             dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
-            dc.DrawCircle(nx, ny, 13)
+            dc.DrawCircle(nx, ny, self.radius)
             x = nx
             y = ny
             nx += sin(self.angles[i]) * self.l[i] * self.scale
             ny += cos(self.angles[i]) * self.l[i] * self.scale
         dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
         dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
-        dc.DrawCircle(nx, ny, 13)
+        dc.DrawCircle(nx, ny, self.radius)
+
+    def SetSelected(self, selected=True):
+        self.selected = selected
+
+    def GetX(self):
+        return self.x
+
+    def SetX(self, x):
+        self.x = x
+
+    def GetY(self):
+        return self.y
+
+    def SetY(self, y):
+        self.y = y
 
 
 if __name__ == '__main__':

@@ -67,6 +67,7 @@ class SimulationWindow(BufferedWindow):
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
+        self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
 
         self.clicked = False
         self.originX = 0
@@ -75,6 +76,7 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseX = None
         self.lastMouseY = None
 
+        self.dragginPendulum = 0
         self.movingState = False
         self.pause = True
         self.started = False
@@ -141,17 +143,39 @@ class SimulationWindow(BufferedWindow):
         self.pendulumHandler.SendParameters()
     
     def OnMouseMove(self, e):
-        if self.movingState == False:
-            return
         x, y = e.GetX(), e.GetY()
-        if e.LeftIsDown() == True and self.lastMouseX != None and self.lastMouseY != None:
-            self.originX += x - self.lastMouseX
-            self.originY += y - self.lastMouseY
+        if not e.LeftIsDown():
+            self.lastMouseX = x
+            self.lastMouseY = y
+            return
+        dx = 0
+        dy = 0
+        if self.lastMouseX != None and self.lastMouseY != None:
+            dx = x - self.lastMouseX
+            dy = y - self.lastMouseY
         self.lastMouseX = x
         self.lastMouseY = y
+        
+        if self.movingState:
+            self.originX += dx
+            self.originY += dy
+        elif self.draggingPendulum != 0:
+            self.pendulumHandler.MovePendulum(self.draggingPendulum, dx, dy)
 
     def OnMouseClick(self, e):
-        pass
+        if self.movingState == True:
+            return
+
+        self.draggingPendulum = self.pendulumHandler.PendulumCollision(
+            e.GetX() - self.originX + 13, 
+            e.GetY() - self.originY)
+        if self.draggingPendulum != 0:
+            self.pendulumHandler.SelectPendulum(self.draggingPendulum, True)
+    
+    def OnMouseRelease(self, e):
+        if self.draggingPendulum != 0:
+            self.pendulumHandler.SelectPendulum(self.draggingPendulum, False)
+            self.draggingPendulum = 0
 
     def OnMouseWheel(self, e):
         mag = self.scale * e.GetWheelRotation() / e.GetWheelDelta() / 20.
@@ -275,6 +299,21 @@ class PendulumHandler():
             for bobId in bobList:
                 self.pendulumDict[pendulumId].AddBob(bobId) 
         self.bobStack = {}
+
+    def PendulumCollision(self, mx, my):
+        for pendulumId, pendulum in self.pendulumDict.items():
+            if (pendulum.PendulumCollision(mx, my)):
+                return pendulumId 
+
+        return 0
+
+    def MovePendulum(self, pendulumId, dx, dy):
+        pend = self.pendulumDict[pendulumId]
+        pend.SetX(pend.GetX() + dx)
+        pend.SetY(pend.GetY() + dy)
+
+    def SelectPendulum(self, pendulumId, selected=True):
+        self.pendulumDict[pendulumId].SetSelected(selected)
 
     def Tick(self):
         for pendulum in self.pendulumDict.values():
@@ -484,7 +523,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         dc.SetBrush(wx.Brush(wx.BLACK))
         dc.SetPen(wx.Pen(wx.BLACK))
         dc.DrawLabel(label, wx.Rect(2, 1, width - 6, height - 15), 
-            alignment=wx.ALIGN_CENTER_HORIZONTAL|wx.ALIGN_TOP)
+            alignment=wx.ALIGN_LEFT|wx.ALIGN_TOP)
     
     def OnAddBobButton(self, e):
         self.AddBob()
@@ -642,7 +681,9 @@ class FillWindow(wx.Window):
     def __init__(self, *args, **kwargs):
         wx.Window.__init__(self, *args, **kwargs)
 
-        self.Bind(wx.EVT_MOTION, self.OnMouse)
+        self.Bind(wx.EVT_MOTION, self.OnMouseMotion)
+        self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
+        self.Bind(wx.EVT_MOUSE_EVENTS, self.OnMouse)
 
     def ChangeCursor(self, stockCursor):
         self.SetCursor(wx.Cursor(stockCursor))
@@ -652,9 +693,29 @@ class FillWindow(wx.Window):
             self.GetParent().movingState = True
 
     #Send all the mouse events to the parent i.e the SimulationWindow
-    def OnMouse(self, e):
+    def OnMouseMotion(self, e):
+        mx = e.GetX()
+        my = e.GetY()
+        x, y = self.GetPosition()
+        e.SetX(mx + x - 13)
+        e.SetY(my + y)
         self.GetParent().SafelyProcessEvent(e)
-        e.Skip()
+
+    def OnMouse(self, e):
+        mx = e.GetX()
+        my = e.GetY()
+        x, y = self.GetPosition()
+        e.SetX(mx + x - 13)
+        e.SetY(my + y)
+        self.GetParent().SafelyProcessEvent(e)
+
+    def OnMouseClick(self, e):
+        mx = e.GetX()
+        my = e.GetY()
+        x, y = self.GetPosition()
+        e.SetX(mx + x - 13)
+        e.SetY(my + y)
+        self.GetParent().SafelyProcessEvent(e)
 
 class MainFrame(wx.Frame):
 
