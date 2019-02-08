@@ -6,7 +6,7 @@ from math import sqrt
 import wx
 import time
 
-class Pendulum():
+class PendulumBase():
 
     def __init__(self, x, y, timeInterval):
         self.x = x
@@ -118,6 +118,22 @@ class Pendulum():
         for i in range(0, self.bobCount):
             self.vels[i] += acc[i] * self.deltaT
             self.angles[i] += self.vels[i] * self.deltaT
+
+    def GetX(self):
+        return self.x
+
+    def SetX(self, x):
+        self.x = x
+
+    def GetY(self):
+        return self.y
+
+    def SetY(self, y):
+        self.y = y
+
+class Pendulum(PendulumBase):
+    def __init__(self, x, y, timeInterval):
+        PendulumBase.__init__(self, x, y, timeInterval)
 
     def PendulumCollision(self, mx, my):
         """Check if the cursor at the coordinates (mx, my) is over the pendulum
@@ -238,19 +254,6 @@ class Pendulum():
 
     def SetSelected(self, selected=True):
         self.selected = selected
-
-    def GetX(self):
-        return self.x
-
-    def SetX(self, x):
-        self.x = x
-
-    def GetY(self):
-        return self.y
-
-    def SetY(self, y):
-        self.y = y
-
 
 if __name__ == '__main__':
     p = Pendulum(30, 30, 0.001)

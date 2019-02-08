@@ -176,7 +176,7 @@ class SimulationWindow(BufferedWindow):
         if self.draggingPendulum != 0:
             self.pendulumHandler.SelectPendulum(self.draggingPendulum, True)
         else:
-            pendulumId = self.pendulumHandler.AddPendulum(e.GetX()+13, e.GetY())
+            pendulumId = self.pendulumHandler.AddPendulum(e.GetX()+13, e.GetY(), 1. / self.ticksPerSecond)
             wx.FindWindowByName('explorer').AddPendulum(pendulumId)
             #self.pendulumHandler.AddBob(pendulumId)
     
