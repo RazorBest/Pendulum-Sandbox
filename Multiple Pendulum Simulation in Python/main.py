@@ -76,7 +76,7 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseX = None
         self.lastMouseY = None
 
-        self.dragginPendulum = 0
+        self.draggingPendulum = 0
         self.movingState = False
         self.pause = True
         self.started = False
@@ -163,6 +163,10 @@ class SimulationWindow(BufferedWindow):
             self.pendulumHandler.MovePendulum(self.draggingPendulum, dx, dy)
 
     def OnMouseClick(self, e):
+        if self.draggingPendulum != 0:
+            self.pendulumHandler.SelectPendulum(self.draggingPendulum, False)
+            self.draggingPendulum = 0
+
         if self.movingState == True:
             return
 
@@ -171,11 +175,16 @@ class SimulationWindow(BufferedWindow):
             e.GetY() - self.originY)
         if self.draggingPendulum != 0:
             self.pendulumHandler.SelectPendulum(self.draggingPendulum, True)
+        else:
+            pendulumId = self.pendulumHandler.AddPendulum(e.GetX()+13, e.GetY())
+            wx.FindWindowByName('explorer').AddPendulum(pendulumId)
+            #self.pendulumHandler.AddBob(pendulumId)
     
     def OnMouseRelease(self, e):
         if self.draggingPendulum != 0:
-            self.pendulumHandler.SelectPendulum(self.draggingPendulum, False)
-            self.draggingPendulum = 0
+            pass
+            #self.pendulumHandler.SelectPendulum(self.draggingPendulum, False)
+            #self.draggingPendulum = 0
 
     def OnMouseWheel(self, e):
         mag = self.scale * e.GetWheelRotation() / e.GetWheelDelta() / 20.
@@ -374,7 +383,6 @@ class NumberValidator(wx.Validator):
     def GetValue(self):
         return self.number
 
-
 class NumberInputCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwargs):
         self.variableName = kwargs['variableName']
@@ -459,7 +467,8 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         self.pendulumHandler.RemoveBob(self.pendulumId, self.bobId)
 
 class PendulumEditor(wxcp.PyCollapsiblePane):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, pendulumId, *args, **kwargs):
+        self.pendulumId = pendulumId
         wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
@@ -480,7 +489,6 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.sizer.Add(addBobButton)
 
         simulationWindow = wx.FindWindowByName('simulationWindow')
-        self.pendulumId = simulationWindow.AddPendulum()
         self.pendulumHandler = simulationWindow.GetPendulumHandler()
 
         self.sizersDict = {}
@@ -586,6 +594,8 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
 
 class Explorer(wx.ScrolledWindow):
     def __init__(self, *args, **kwargs):
+        kwargs['name'] = 'explorer'
+
         wx.ScrolledWindow.__init__(self, *args, **kwargs)
 
         # Set style
@@ -606,17 +616,34 @@ class Explorer(wx.ScrolledWindow):
         
         self.SetSizer(self.sizer)
 
+        self.simulationWindow = wx.FindWindowByName('simulationWindow')
+        self.pendulumHandler = self.simulationWindow.GetPendulumHandler()
+
         self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
 
     def OnButton(self, e):
+        self.AddPendulum()
+
+    def AddPendulum(self, pendulumId=None, x=None, y=None):
         self.pendulumCount += 1
-        pane = PendulumEditor(self, 
+        if pendulumId == None:
+            if x != None and y != None:
+                pendulumId = self.pendulumHandler.AddPendulum(x, y)
+            else:
+                pendulumId = self.simulationWindow.AddPendulum()
+
+        pane = PendulumEditor(
+            pendulumId,
+            self,
             label='Pendulum ' + str(self.pendulumCount), 
             agwStyle=wxcp.CP_GTK_EXPANDER)
         pane.Expand()
         self.sizer.Prepend(pane, flag=wx.EXPAND)
-        self.Refresh()
-        self.Layout()
+        #self.Refresh()
+        #self.Layout()
+        self.SendSizeEvent()
+        
+        return pendulumId
 
 class UserResizableWindow(wx.Window):
     def __init__(self, *args, **kwargs):

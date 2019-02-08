@@ -132,12 +132,14 @@ class Pendulum():
             return True
 
         for i in range(0, self.bobCount):
-            nx = x + sin(self.angles[0]) * self.l[0] * self.scale
-            ny = y + cos(self.angles[0]) * self.l[0] * self.scale
+            nx = x + sin(self.angles[i]) * self.l[i] * self.scale
+            ny = y + cos(self.angles[i]) * self.l[i] * self.scale
+
             if self.RodCollision(mx, my, x, y, nx, ny, 5):
                 return True
             if self.BobCollision(mx, my, nx, ny, self.radius):
                 return True            
+
             x = nx
             y = ny
         
@@ -160,49 +162,62 @@ class Pendulum():
         return True
 
     def GetRect(self, x1, y1, x2, y2, l):
-        l1 = self.Distance(x1, y1, x2, y2)
         dx = 0
         if y1 != y2:
-            dx = l / sqrt(1 + (x2 - x1)**2 / abs(y2 - y1)**2)
+            dx = l / sqrt(1 + (x2 - x1)**2 / ((y2 - y1)**2))
+            if (x2 - x1)*(y2 - y1) < 0:
+                dx = -dx
         dy = 0
         if x1 != x2:
-            dy = l / sqrt(1 + (y2 - y1)**2 / abs(x2 - x1)**2)
+            dy = l / sqrt(1 + (y2 - y1)**2 / ((x2 - x1)**2))
+            if (x2 - x1)*(y1 - y1) < 0:
+                dy = -dy
         p = 4*[(0, 0)]
-        p[0] = (x1 - dx, y1 - dy)
-        p[1] = (x2 - dx, y2 - dy)
-        p[2] = (x2 + dx, y2 + dy) 
-        p[3] = (x1 + dx, y1 + dy)
+        p[0] = (x1 - dx, y1 + dy)
+        p[1] = (x2 - dx, y2 + dy)
+        p[2] = (x2 + dx, y2 - dy) 
+        p[3] = (x1 + dx, y1 - dy)
 
         return p
 
     def Draw(self, dc, tx=0, ty=0):
-        if self.bobCount == 0:
-            return
-            
         x = self.x
         y = self.y
 
+        if self.bobCount == 0:
+            if self.selected:
+                dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
+                dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
+                dc.DrawCircle(x, y, self.radius)
+            dc.SetBrush(wx.Brush(wx.BLACK))
+            dc.SetPen(wx.Pen(wx.BLACK))
+            dc.DrawCircle(x, y, self.radius - 3)
+            return
+            
         nx = x + sin(self.angles[0]) * self.l[0] * self.scale
         ny = y + cos(self.angles[0]) * self.l[0] * self.scale 
         if self.selected:
-            dc.SetBrush(wx.Brush(wx.Colour(148, 114, 249)))
-            dc.SetPen(wx.Pen(wx.Colour(148, 114, 249)))
+            dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
+            dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
             #dc.DrawLine(x, y, nx, ny)
-            dc.DrawCircle(x, y, self.radius + 1)
+            dc.DrawCircle(x, y, self.radius)
         dc.SetBrush(wx.Brush(wx.BLACK))
         dc.SetPen(wx.Pen(wx.BLACK))
         dc.DrawLine(x, y, nx, ny)
         dc.DrawCircle(x, y, self.radius - 3)
+    
         for i in range(1, self.bobCount):
 
             dc.SetBrush(wx.Brush(wx.BLACK))
             dc.SetPen(wx.Pen(wx.BLACK))
             dc.DrawLine(nx + tx, ny + ty, nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, ny + cos(self.angles[i]) * self.l[i] * self.scale + ty)
+
             if self.selected:
-                dc.SetBrush(wx.Brush(wx.Colour(148, 114, 249)))
-                dc.SetPen(wx.Pen(wx.Colour(148, 114, 249)))
+                dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
+                dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
                 #dc.DrawLine(x, y, nx, ny)
-                dc.DrawCircle(x, y, self.radius + 5)
+                dc.DrawCircle(nx, ny, self.radius + 4)
+
             dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
             dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
             dc.DrawCircle(nx, ny, self.radius)
@@ -210,6 +225,13 @@ class Pendulum():
             y = ny
             nx += sin(self.angles[i]) * self.l[i] * self.scale
             ny += cos(self.angles[i]) * self.l[i] * self.scale
+
+        if self.selected:
+            dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
+            dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
+            #dc.DrawLine(x, y, nx, ny)
+            dc.DrawCircle(nx, ny, self.radius + 4)
+        
         dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
         dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
         dc.DrawCircle(nx, ny, self.radius)
