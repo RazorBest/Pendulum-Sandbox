@@ -22,7 +22,6 @@ class PendulumBase():
         self.l = []
         self.deltaT = timeInterval
         self.scale = 100
-        self.radius = 13
 
         self.selected = False
 
@@ -104,7 +103,6 @@ class PendulumBase():
                 self.B[2 * i + 1] += self.g
             self.A[2 * i][n + i] = - sin(a[i]) / self.m[i]
             self.A[2 * i + 1][n + i] = cos(a[i]) / self.m[i]
-            #B[2 * i + 1] += self.g
             if i == n - 1:
                 continue
             self.A[2 * i][n + i + 1] = sin(a[i + 1]) / self.m[i]
@@ -132,6 +130,8 @@ class PendulumBase():
         self.y = y
 
 class Pendulum(PendulumBase):
+    radius = 13
+
     def __init__(self, x, y, timeInterval):
         PendulumBase.__init__(self, x, y, timeInterval)
 
@@ -254,6 +254,12 @@ class Pendulum(PendulumBase):
 
     def SetSelected(self, selected=True):
         self.selected = selected
+
+    @staticmethod
+    def DrawHover(dc, x, y):
+        dc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 100)))
+        dc.SetPen(wx.Pen(wx.Colour(0, 0, 0, 100)))
+        dc.DrawCircle(x, y, radius)
 
 if __name__ == '__main__':
     p = Pendulum(30, 30, 0.001)

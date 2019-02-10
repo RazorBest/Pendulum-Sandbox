@@ -68,6 +68,7 @@ class SimulationWindow(BufferedWindow):
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         self.clicked = False
         self.originX = 0
@@ -76,7 +77,9 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseX = None
         self.lastMouseY = None
 
-        self.draggingPendulum = 0
+        self.dragPendulum = 0
+        self.hoverPendulum = 0
+        self.hoverPendulum = 0
         self.movingState = False
         self.pause = True
         self.started = False
@@ -91,10 +94,18 @@ class SimulationWindow(BufferedWindow):
 
     def StartThread(self):
         self.timer.Start(1000. / 200)
+
         self.running = True
         self.main_thread = threading.Thread(target=self.run)
         self.main_thread.daemon = True
         self.main_thread.start()
+
+    def StopThread(self):
+        self.timer.Stop()
+
+        if self.running:
+            self.running = False
+            self.main_thread.join() 
 
     def run(self):
         print "Thread started"
@@ -121,13 +132,17 @@ class SimulationWindow(BufferedWindow):
         dc.Clear()
         #dc.SetBackground(wx.Brush(wx.WHITE))
 
-        #drawing the origin
+        
         dc.SetDeviceOrigin(self.originX, self.originY)
         dc.SetUserScale(self.scale, self.scale)
 
+        #drawing the origin
         dc.DrawCircle(0, 0, 3)
         dc.DrawLine(-15, 0, 15, 0)
         dc.DrawLine(0, -15, 0, 15)
+
+        if self.hoverPendulum == 0:
+            Pendulum.DrawHover(dc, self.lastMouseX - self.originX + 13, self.lastMouseY - self.originY)
 
         self.pendulumHandler.Draw(dc)
 
@@ -144,9 +159,14 @@ class SimulationWindow(BufferedWindow):
     
     def OnMouseMove(self, e):
         x, y = e.GetX(), e.GetY()
+
         if not e.LeftIsDown():
             self.lastMouseX = x
             self.lastMouseY = y
+
+            self.hoverPendulum = self.pendulumHandler.PendulumCollision(
+                x - self.originX + 13, 
+                y - self.originY)
             return
         dx = 0
         dy = 0
@@ -159,32 +179,36 @@ class SimulationWindow(BufferedWindow):
         if self.movingState:
             self.originX += dx
             self.originY += dy
-        elif self.draggingPendulum != 0:
-            self.pendulumHandler.MovePendulum(self.draggingPendulum, dx, dy)
+        elif self.dragPendulum != 0:
+            self.pendulumHandler.MovePendulum(self.dragPendulum, dx, dy)
 
     def OnMouseClick(self, e):
-        if self.draggingPendulum != 0:
-            self.pendulumHandler.SelectPendulum(self.draggingPendulum, False)
-            self.draggingPendulum = 0
+        x, y = e.GetX(), e.GetY()
+
+        if self.dragPendulum != 0:
+            self.pendulumHandler.SelectPendulum(self.dragPendulum, False)
+            self.dragPendulum = 0
 
         if self.movingState == True:
             return
 
-        self.draggingPendulum = self.pendulumHandler.PendulumCollision(
-            e.GetX() - self.originX + 13, 
-            e.GetY() - self.originY)
-        if self.draggingPendulum != 0:
-            self.pendulumHandler.SelectPendulum(self.draggingPendulum, True)
+        self.dragPendulum = self.pendulumHandler.PendulumCollision(
+            x - self.originX + 13, 
+            y - self.originY)
+        if self.dragPendulum != 0:
+            
+            self.pendulumHandler.SelectPendulum(self.dragPendulum, True)
         else:
-            pendulumId = self.pendulumHandler.AddPendulum(e.GetX()+13, e.GetY(), 1. / self.ticksPerSecond)
+            self.pendulumHover = 0
+            pendulumId = self.pendulumHandler.AddPendulum(x + 13, y, 1. / self.ticksPerSecond)
             wx.FindWindowByName('explorer').AddPendulum(pendulumId)
             #self.pendulumHandler.AddBob(pendulumId)
     
     def OnMouseRelease(self, e):
-        if self.draggingPendulum != 0:
+        if self.dragPendulum != 0:
             pass
-            #self.pendulumHandler.SelectPendulum(self.draggingPendulum, False)
-            #self.draggingPendulum = 0
+            #self.pendulumHandler.SelectPendulum(self.dragPendulum, False)
+            #self.dragPendulum = 0
 
     def OnMouseWheel(self, e):
         mag = self.scale * e.GetWheelRotation() / e.GetWheelDelta() / 20.
@@ -206,6 +230,10 @@ class SimulationWindow(BufferedWindow):
 
     def IsStarted(self):
         return self.started
+
+    def OnClose(self, e):
+        self.StopThread()
+        print 'closing simulationWindow'
 
 class DataHolder():
     def __init__(self, val=None):
@@ -790,16 +818,17 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.playTool)
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.pauseTool)
         self.Bind(wx.EVT_TOOL, self.OnReload, self.reloadTool)
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
 
-        self.window = SimulationWindow(self, size=(width, 0))
-        self.fillWindow = FillWindow(self.window, style=wx.TRANSPARENT_WINDOW)
+        self.simulationWindow = SimulationWindow(self, size=(width, 0))
+        self.fillWindow = FillWindow(self.simulationWindow, style=wx.TRANSPARENT_WINDOW)
 
-        explorerPanel = UserResizableWindow(self.window, size=(150, 0), style=wx.BORDER_SIMPLE)
+        explorerPanel = UserResizableWindow(self.simulationWindow, size=(150, 0), style=wx.BORDER_SIMPLE)
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
 
         windowSizer.Add(self.fillWindow, 1, wx.EXPAND)
-        self.window.SetSizer(windowSizer)
+        self.simulationWindow.SetSizer(windowSizer)
 
         self.Centre()
         self.Show(True)
@@ -844,6 +873,10 @@ class MainFrame(wx.Frame):
             self.control.SetValue(f.read())
             f.close()
         dlg.Destroy()
+
+    def OnClose(self, e):
+        self.simulationWindow.Close(True)
+        e.Skip()
 
 def main():
     app = wx.App(False)
