@@ -23,8 +23,6 @@ class PendulumBase():
         self.deltaT = timeInterval
         self.scale = 100
 
-        self.selected = False
-
         self.A = None
         self.B = None
         self.lc = None
@@ -135,6 +133,9 @@ class Pendulum(PendulumBase):
     def __init__(self, x, y, timeInterval):
         PendulumBase.__init__(self, x, y, timeInterval)
 
+        self.selected = False
+        self.hovered = False
+
     def PendulumCollision(self, mx, my):
         """Check if the cursor at the coordinates (mx, my) is over the pendulum
                 (over any bob or its rods)
@@ -215,8 +216,11 @@ class Pendulum(PendulumBase):
         if self.selected:
             dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
             dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
-            #dc.DrawLine(x, y, nx, ny)
+        
             dc.DrawCircle(x, y, self.radius)
+            points = self.GetRect(x, y, nx, ny, 2)
+            dc.DrawPolygon(points)
+
         dc.SetBrush(wx.Brush(wx.BLACK))
         dc.SetPen(wx.Pen(wx.BLACK))
         dc.DrawLine(x, y, nx, ny)
@@ -224,15 +228,26 @@ class Pendulum(PendulumBase):
     
         for i in range(1, self.bobCount):
 
-            dc.SetBrush(wx.Brush(wx.BLACK))
-            dc.SetPen(wx.Pen(wx.BLACK))
-            dc.DrawLine(nx + tx, ny + ty, nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, ny + cos(self.angles[i]) * self.l[i] * self.scale + ty)
-
             if self.selected:
                 dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
                 dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
-                #dc.DrawLine(x, y, nx, ny)
+
                 dc.DrawCircle(nx, ny, self.radius + 4)
+                points = self.GetRect(
+                    nx + tx, 
+                    ny + ty, 
+                    nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, 
+                    ny + cos(self.angles[i]) * self.l[i] * self.scale + ty, 
+                    3)
+                dc.DrawPolygon(points)
+
+            dc.SetBrush(wx.Brush(wx.BLACK))
+            dc.SetPen(wx.Pen(wx.BLACK))
+            dc.DrawLine(
+                nx + tx, 
+                ny + ty, 
+                nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, 
+                ny + cos(self.angles[i]) * self.l[i] * self.scale + ty)
 
             dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
             dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
@@ -245,7 +260,6 @@ class Pendulum(PendulumBase):
         if self.selected:
             dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
             dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
-            #dc.DrawLine(x, y, nx, ny)
             dc.DrawCircle(nx, ny, self.radius + 4)
         
         dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
@@ -255,11 +269,8 @@ class Pendulum(PendulumBase):
     def SetSelected(self, selected=True):
         self.selected = selected
 
-    @staticmethod
-    def DrawHover(dc, x, y):
-        dc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 100)))
-        dc.SetPen(wx.Pen(wx.Colour(0, 0, 0, 100)))
-        dc.DrawCircle(x, y, radius)
+    def SetHovered(self, hovered=True):
+        self.hover = hover
 
 if __name__ == '__main__':
     p = Pendulum(30, 30, 0.001)

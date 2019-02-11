@@ -1,6 +1,7 @@
 """
     This is a simulation of an n-link pendulum
 """
+from __future__ import division
 import os
 import time
 import threading
@@ -11,6 +12,7 @@ import wx.lib.scrolledpanel as wxsp
 import re
 from pendulum import Pendulum
 
+
 class BufferedWindow(wx.Window):
     def __init__(self, *args, **kwargs):
         kwargs['style'] = kwargs.setdefault('style', wx.NO_FULL_REPAINT_ON_RESIZE | wx.NO_FULL_REPAINT_ON_RESIZE)
@@ -18,7 +20,7 @@ class BufferedWindow(wx.Window):
 
         # Setting up the event handlers
         self.Bind(wx.EVT_PAINT, self.OnPaint)
-        self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.Bind(wx.EVT_SIZE, self.OnSizeBufferedWindow)
 
     # This funtion is for subclasses
     def Draw(self, dc):
@@ -31,7 +33,7 @@ class BufferedWindow(wx.Window):
         del dc
         wx.CallAfter(self.Paint)
 
-    def OnSize(self, e=None):
+    def OnSizeBufferedWindow(self, e=None):
         size = self.GetClientSize()
         self._Buffer = wx.Bitmap(size)
         self.UpdateDrawing()
@@ -51,9 +53,6 @@ class SimulationWindow(BufferedWindow):
 
     def __init__(self, *args, **kwargs):
         self.ticksPerSecond = 500
-        #self.pendulum = Pendulum(200, 100, 1. / self.ticksPerSecond)
-        #self.pendulum.AddBob(20, 80, 2, 0)
-        #self.pendulum.AddBob(20, 180, 1.5, 0)
 
         #kwargs['size'] = (300, 200)
         kwargs['name'] = 'simulationWindow'
@@ -63,16 +62,18 @@ class SimulationWindow(BufferedWindow):
         self.SetBackgroundColour(wx.WHITE)
 
         self.pendulumHandler = PendulumHandler()
-
+        
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
+        self.Bind(wx.EVT_ENTER_WINDOW, self.OnEnterWindow)
+        self.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         self.clicked = False
-        self.originX = 0
-        self.originY = 0
+        self.originX = 200
+        self.originY = 200
         self.scale = 1
         self.lastMouseX = None
         self.lastMouseY = None
@@ -81,14 +82,19 @@ class SimulationWindow(BufferedWindow):
         self.hoverPendulum = 0
         self.hoverPendulum = 0
         self.movingState = False
+        self.mouseEntered = True
         self.pause = True
         self.started = False
+
+        self.gridSpace = 100
+        self.grid = Grid(space=self.gridSpace, colourCode=(200, 200, 200))
 
         self.timer = wx.Timer(self)
 
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
+        self.Bind(wx.EVT_SIZE, self.OnSize)
 
-        wx.CallLater(2000, self.StartThread)
+        wx.CallLater(1000, self.StartThread)
 
         print "SimulationWindow initiated"
 
@@ -131,20 +137,34 @@ class SimulationWindow(BufferedWindow):
     def Draw(self, dc):
         dc.Clear()
         #dc.SetBackground(wx.Brush(wx.WHITE))
-
         
         dc.SetDeviceOrigin(self.originX, self.originY)
-        dc.SetUserScale(self.scale, self.scale)
+
+        self.grid.Draw(dc)
 
         #drawing the origin
         dc.DrawCircle(0, 0, 3)
         dc.DrawLine(-15, 0, 15, 0)
         dc.DrawLine(0, -15, 0, 15)
 
-        if self.hoverPendulum == 0:
-            Pendulum.DrawHover(dc, self.lastMouseX - self.originX + 13, self.lastMouseY - self.originY)
+        dc.SetUserScale(self.scale, self.scale)
+
+        if not self.movingState and self.hoverPendulum == 0 and self.lastMouseX != None and self.lastMouseY != None and self.mouseEntered:
+            dc.SetPen(wx.Pen(wx.Colour(175, 175, 175)))
+            dc.SetBrush(wx.Brush(wx.Colour(175, 175, 175)))
+            dc.DrawCircle(self.TranslateCoord(self.lastMouseX, self.lastMouseY), 10)
 
         self.pendulumHandler.Draw(dc)
+
+    def TranslateCoord(self, x, y):
+        return (x - self.originX) / self.scale, (y- self.originY) / self.scale
+
+    def ChangeCursor(self, stockCursor):
+        self.SetCursor(wx.Cursor(stockCursor))
+        if stockCursor == wx.CURSOR_ARROW:
+            self.movingState = False
+        elif stockCursor == wx.CURSOR_SIZING:
+            self.movingState = True
 
     def SetPause(self, pause):
         self.pause = pause
@@ -157,6 +177,22 @@ class SimulationWindow(BufferedWindow):
         self.pendulumHandler.ReleaseStack()
         self.pendulumHandler.SendParameters()
     
+    def OnSize(self, e=None):
+        self.grid.SetSpace(self.gridSpace * self.scale)
+        width, height = self.GetSize()
+        self.grid.SetWidth(width + 200)
+        self.grid.SetHeight(height + 200)
+        self.grid.SetX(-self.originX)
+        self.grid.SetY(-self.originY)
+        if e != None:
+            e.Skip()
+
+    def OnEnterWindow(self, e):
+        self.mouseEntered = True
+
+    def OnLeaveWindow(self, e):
+        self.mouseEntered = False
+
     def OnMouseMove(self, e):
         x, y = e.GetX(), e.GetY()
 
@@ -164,9 +200,7 @@ class SimulationWindow(BufferedWindow):
             self.lastMouseX = x
             self.lastMouseY = y
 
-            self.hoverPendulum = self.pendulumHandler.PendulumCollision(
-                x - self.originX + 13, 
-                y - self.originY)
+            self.hoverPendulum = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
             return
         dx = 0
         dy = 0
@@ -179,8 +213,11 @@ class SimulationWindow(BufferedWindow):
         if self.movingState:
             self.originX += dx
             self.originY += dy
+
+            self.grid.SetX(-self.originX)
+            self.grid.SetY(-self.originY)
         elif self.dragPendulum != 0:
-            self.pendulumHandler.MovePendulum(self.dragPendulum, dx, dy)
+            self.pendulumHandler.MovePendulum(self.dragPendulum, dx / self.scale, dy / self.scale)
 
     def OnMouseClick(self, e):
         x, y = e.GetX(), e.GetY()
@@ -192,15 +229,14 @@ class SimulationWindow(BufferedWindow):
         if self.movingState == True:
             return
 
-        self.dragPendulum = self.pendulumHandler.PendulumCollision(
-            x - self.originX + 13, 
-            y - self.originY)
+        self.dragPendulum = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
         if self.dragPendulum != 0:
             
             self.pendulumHandler.SelectPendulum(self.dragPendulum, True)
         else:
             self.pendulumHover = 0
-            pendulumId = self.pendulumHandler.AddPendulum(x + 13, y, 1. / self.ticksPerSecond)
+            x, y = self.TranslateCoord(x, y)
+            pendulumId = self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
             wx.FindWindowByName('explorer').AddPendulum(pendulumId)
             #self.pendulumHandler.AddBob(pendulumId)
     
@@ -211,13 +247,28 @@ class SimulationWindow(BufferedWindow):
             #self.dragPendulum = 0
 
     def OnMouseWheel(self, e):
-        mag = self.scale * e.GetWheelRotation() / e.GetWheelDelta() / 20.
+        mag = self.scale * e.GetWheelRotation() / e.GetWheelDelta() / 25.
         mx = e.GetX()
         my = e.GetY()
-        if self.scale + mag > 0:
-            self.originX -= (mx - self.originX) * mag / float(self.scale)
-            self.originY -= (my - self.originY) * mag / float(self.scale)
+
+        if self.scale + mag > 0.2 and self.scale + mag < 6:
+            self.originX -= (mx - self.originX) * mag / self.scale
+            self.originY -= (my - self.originY) * mag / self.scale
             self.scale += mag
+
+            if self.gridSpace * self.scale < 50:
+                self.gridSpace = 100 / self.scale
+
+            if self.gridSpace * self.scale > 100:
+                self.gridSpace = 50 / self.scale
+            
+            self.grid.SetSpace(self.gridSpace * self.scale)
+            width, height = self.GetSize()
+            self.grid.SetWidth(width + 200)
+            self.grid.SetHeight(height + 200)
+
+            self.grid.SetX(-self.originX)
+            self.grid.SetY(-self.originY)
 
     def GetPendulumHandler(self):
         return self.pendulumHandler
@@ -234,6 +285,65 @@ class SimulationWindow(BufferedWindow):
     def OnClose(self, e):
         self.StopThread()
         print 'closing simulationWindow'
+
+class Grid():
+    def __init__(self, x=0, y=0, width=0, height=0, space=100, colourCode=wx.BLACK):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.colourCode = colourCode
+        self.space = space
+        self.scale = 1
+
+    def SetX(self, x):
+        self.x = x
+    
+    def SetY(self, y):
+        self.y = y
+
+    def SetWidth(self, width):
+        self.width = width
+
+    def SetHeight(self, height):
+        self.height = height
+
+    def SetSpace(self, space):
+        self.space = space
+
+    def SetScale(self, scale):
+        self.scale = scale
+
+    def SetColour(self, colour):
+        self.colour = colour
+
+    def Draw(self, dc):
+        dc.SetPen(wx.Pen(wx.Colour(self.colourCode)))
+        dc.SetBrush(wx.Brush(wx.Colour(self.colourCode)))
+
+        w = self.width
+        h = self.height
+        x = self.x
+        y = self.y
+
+        l1 = y - y % self.space
+        while l1 <= y + h:
+            dc.DrawLine(x, l1, x + w, l1)
+            l1 += self.space
+        
+        c1 = x - x % self.space
+        while c1 <= x + w:
+            dc.DrawLine(c1, y, c1, y + h)
+            c1 += self.space
+
+        dc.SetPen(wx.Pen(wx.Colour(wx.BLACK)))
+        dc.SetBrush(wx.Brush(wx.Colour(wx.BLACK)))
+        dc.DrawLine(x, 0, x + w, 0)
+        dc.DrawLine(0, y, 0, y + h)
+
+class PendulumCreator():
+    def __init__(self):
+        pass
 
 class DataHolder():
     def __init__(self, val=None):
@@ -575,7 +685,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.bobDict[bobId] = t
         self.bobList.append(t)
 
-        closeButton = wx.Button(self.GetPane(), id=bobId, size=(20, 20), label='t')
+        closeButton = wx.Button(self.GetPane(), id=bobId, size=(20, 20), label='x')
 
         self.Bind(wx.EVT_BUTTON, self.OnCloseButton, closeButton)
 
@@ -732,46 +842,6 @@ class UserResizableWindow(wx.Window):
     def OnMouseCaptureChanged(self, e):
         print 'changed'
 
-class FillWindow(wx.Window):
-    def __init__(self, *args, **kwargs):
-        wx.Window.__init__(self, *args, **kwargs)
-
-        self.Bind(wx.EVT_MOTION, self.OnMouseMotion)
-        self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
-        self.Bind(wx.EVT_MOUSE_EVENTS, self.OnMouse)
-
-    def ChangeCursor(self, stockCursor):
-        self.SetCursor(wx.Cursor(stockCursor))
-        if stockCursor == wx.CURSOR_ARROW:
-            self.GetParent().movingState = False
-        elif stockCursor == wx.CURSOR_SIZING:
-            self.GetParent().movingState = True
-
-    #Send all the mouse events to the parent i.e the SimulationWindow
-    def OnMouseMotion(self, e):
-        mx = e.GetX()
-        my = e.GetY()
-        x, y = self.GetPosition()
-        e.SetX(mx + x - 13)
-        e.SetY(my + y)
-        self.GetParent().SafelyProcessEvent(e)
-
-    def OnMouse(self, e):
-        mx = e.GetX()
-        my = e.GetY()
-        x, y = self.GetPosition()
-        e.SetX(mx + x - 13)
-        e.SetY(my + y)
-        self.GetParent().SafelyProcessEvent(e)
-
-    def OnMouseClick(self, e):
-        mx = e.GetX()
-        my = e.GetY()
-        x, y = self.GetPosition()
-        e.SetX(mx + x - 13)
-        e.SetY(my + y)
-        self.GetParent().SafelyProcessEvent(e)
-
 class MainFrame(wx.Frame):
 
     """Derive a new class from Frame"""
@@ -821,13 +891,11 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         self.simulationWindow = SimulationWindow(self, size=(width, 0))
-        self.fillWindow = FillWindow(self.simulationWindow, style=wx.TRANSPARENT_WINDOW)
 
         explorerPanel = UserResizableWindow(self.simulationWindow, size=(150, 0), style=wx.BORDER_SIMPLE)
+       
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
-
-        windowSizer.Add(self.fillWindow, 1, wx.EXPAND)
         self.simulationWindow.SetSizer(windowSizer)
 
         self.Centre()
@@ -836,22 +904,21 @@ class MainFrame(wx.Frame):
     def OnChangeCursor(self, e):
         id = e.GetId()
         if id == self.selectionTool.GetId():
-            self.fillWindow.ChangeCursor(wx.CURSOR_ARROW)
+            self.simulationWindow.ChangeCursor(wx.CURSOR_ARROW)
         elif id == self.moveTool.GetId():
-            #print 'ahoy'
-            self.fillWindow.ChangeCursor(wx.CURSOR_SIZING)
+            self.simulationWindow.ChangeCursor(wx.CURSOR_SIZING)
             #self.ChangeCursor(wx.CURSOR_SIZING)
 
     def OnTogglePlay(self, e):
         id = e.GetId()
         if id == self.playTool.GetId():
-            self.window.SetPause(False)
+            self.simulationWindow.SetPause(False)
         elif id == self.pauseTool.GetId():
-            self.window.SetPause(True)
+            self.simulationWindow.SetPause(True)
 
     def OnReload(self, e):
         self.GetToolBar().ToggleTool(self.pauseTool.GetId(), True)
-        self.window.Reload()
+        self.simulationWindow.Reload()
 
     def OnAbout(self, e):
         # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets
