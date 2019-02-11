@@ -11,6 +11,7 @@ import wx.lib.newevent
 import wx.lib.scrolledpanel as wxsp
 import re
 from pendulum import Pendulum
+from math import sqrt, asin
 
 
 class BufferedWindow(wx.Window):
@@ -62,6 +63,7 @@ class SimulationWindow(BufferedWindow):
         self.SetBackgroundColour(wx.WHITE)
 
         self.pendulumHandler = PendulumHandler()
+        self.pendulumCreator(self.pendulumHandler)
         
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
@@ -78,11 +80,13 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseX = None
         self.lastMouseY = None
 
+        self.state = 0
+
         self.dragPendulum = 0
         self.hoverPendulum = 0
-        self.hoverPendulum = 0
         self.movingState = False
-        self.mouseEntered = True
+        self.enteredState = True
+        self.creationState = False
         self.pause = True
         self.started = False
 
@@ -149,7 +153,7 @@ class SimulationWindow(BufferedWindow):
 
         dc.SetUserScale(self.scale, self.scale)
 
-        if not self.movingState and self.hoverPendulum == 0 and self.lastMouseX != None and self.lastMouseY != None and self.mouseEntered:
+        if not self.movingState and self.hoverPendulum == 0 and self.lastMouseX != None and self.lastMouseY != None and self.enteredState:
             dc.SetPen(wx.Pen(wx.Colour(175, 175, 175)))
             dc.SetBrush(wx.Brush(wx.Colour(175, 175, 175)))
             dc.DrawCircle(self.TranslateCoord(self.lastMouseX, self.lastMouseY), 10)
@@ -188,20 +192,14 @@ class SimulationWindow(BufferedWindow):
             e.Skip()
 
     def OnEnterWindow(self, e):
-        self.mouseEntered = True
+        self.enteredState = True
 
     def OnLeaveWindow(self, e):
-        self.mouseEntered = False
+        self.enteredState = False
 
     def OnMouseMove(self, e):
         x, y = e.GetX(), e.GetY()
 
-        if not e.LeftIsDown():
-            self.lastMouseX = x
-            self.lastMouseY = y
-
-            self.hoverPendulum = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
-            return
         dx = 0
         dy = 0
         if self.lastMouseX != None and self.lastMouseY != None:
@@ -209,6 +207,15 @@ class SimulationWindow(BufferedWindow):
             dy = y - self.lastMouseY
         self.lastMouseX = x
         self.lastMouseY = y
+
+        if not e.LeftIsDown():
+            if self.creationState:
+                self.pendulumCreator.SetX(x)
+                self.pendulumCreator.SetY(y)
+                return
+
+            self.hoverPendulum = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
+            return
         
         if self.movingState:
             self.originX += dx
@@ -216,7 +223,9 @@ class SimulationWindow(BufferedWindow):
 
             self.grid.SetX(-self.originX)
             self.grid.SetY(-self.originY)
-        elif self.dragPendulum != 0:
+            return
+        
+        if self.dragPendulum != 0:
             self.pendulumHandler.MovePendulum(self.dragPendulum, dx / self.scale, dy / self.scale)
 
     def OnMouseClick(self, e):
@@ -231,14 +240,14 @@ class SimulationWindow(BufferedWindow):
 
         self.dragPendulum = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
         if self.dragPendulum != 0:
-            
             self.pendulumHandler.SelectPendulum(self.dragPendulum, True)
         else:
+            #create a pendulum with pivot at coorinates (x, y) pendulum
             self.pendulumHover = 0
             x, y = self.TranslateCoord(x, y)
             pendulumId = self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
             wx.FindWindowByName('explorer').AddPendulum(pendulumId)
-            #self.pendulumHandler.AddBob(pendulumId)
+            self.StartCreation(pendulumId)
     
     def OnMouseRelease(self, e):
         if self.dragPendulum != 0:
@@ -273,8 +282,18 @@ class SimulationWindow(BufferedWindow):
     def GetPendulumHandler(self):
         return self.pendulumHandler
 
-    def AddPendulum(self):
-        return self.pendulumHandler.AddPendulum((300 - self.originX) / self.scale, (200 - self.originY) / self.scale, 1. / self.ticksPerSecond)
+    def AddPendulum(self, x=300, y=200):
+        x, y = self.TranslateCoord(x, y)
+        
+        return self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
+
+    def StartCreation(self, pendulumId):
+        self.pendulumCreator.SetPendulumId(pendulumId)
+        self.creationState = True
+
+    def FinishCreation(self):
+        self.pendulumCreator.Add()
+        self.creationState = False
 
     def IsPaused(self):
         return self.pause
@@ -342,7 +361,46 @@ class Grid():
         dc.DrawLine(0, y, 0, y + h)
 
 class PendulumCreator():
-    def __init__(self):
+    def __init__(self, pendulumHandler, pivotX, pivotY, pendulumId=0, x=0, y=0):
+        self.pendulumHandler = pendulumHandler
+        self.penulumId=pendulumId
+        self.bobId = 0
+        self.pivotX = pivotX
+        self.pivotY = pivotY
+        self.x = x
+        self.y = y
+
+        if pendulumId != 0:
+            InitBob()
+
+    def InitBob(self):
+        self.bobId = self.pendulumHandler.AddBob(self.pendulumId)
+
+    def SetPendulumId(self, pendulumId):
+        self.pendulumId = pendulumId
+        InitBob()
+
+    def SetPos(self, x, y):
+        self.x = x
+        self.y = y
+
+    def SetX(self, x):
+        self.x = x
+    
+    def SetY(self, y):
+        self.y = y
+
+    def Add():
+        x = (self.pivotX - self.x)
+        y = (self.pivotY - self.y)
+        length = sqrt(x**2 + y**2)
+        angle = atan2(y, x)
+        values = {'l':length, 'a':angle}
+        self.pendulumHandler.SetParameters(self.pendulumId, self.bobId, values)
+
+        self.pendulum.AddBob(length)
+
+    def Draw(self, dc):
         pass
 
 class DataHolder():
@@ -424,6 +482,10 @@ class PendulumHandler():
 
     def SetParameter(self, pendulumId, bobId, name, value):
         self.variableList[pendulumId][bobId][name].val = value
+
+    def SetParameters(self, pendulumId, bobId, valueDict):
+        for name, val in valueDict.items():
+            self.variableList[pendulumId][bobId][name].val = value
 
     def SetParameter(self, obj, value):
         self.linker[obj].val = value

@@ -136,6 +136,21 @@ class Pendulum(PendulumBase):
         self.selected = False
         self.hovered = False
 
+    def GetPivot(self):
+        return self.x, self.y
+
+    def GetPos(self, bobId):
+        index = self.idList.index(bobId)
+        x = self.x
+        y = self.y
+        for i in range(index):
+            nx = x + sin(self.angles[i]) * self.l[i] * self.scale
+            ny = y + cos(self.angles[i]) * self.l[i] * self.scale
+            x = nx
+            y = ny
+
+        return (x, y)
+
     def PendulumCollision(self, mx, my):
         """Check if the cursor at the coordinates (mx, my) is over the pendulum
                 (over any bob or its rods)
