@@ -15,7 +15,6 @@ class PendulumBase():
         self.bobCount = 0
 
         self.g = 9.8
-        #self.n = 0
         self.angles = [0]
         self.vels = []
         self.m = []
@@ -54,7 +53,7 @@ class PendulumBase():
 
     def AddBob(self, bobId, mass=10, length=100, angle=0, velocity=0):
         self.InsertBob(bobId, self.bobCount, mass, length, angle, velocity)
-    
+
     def RemoveBob(self, bobId):
         self.bobCount -= 1
         index = self.idList.index(bobId)
@@ -64,7 +63,7 @@ class PendulumBase():
         self.l.pop(index)
         self.vels.pop(index)
         self.angles.pop(index)
-        
+
         self.InitArrays()
 
     def SetBob(self, bobId, mass=None, length=None, angle=None, velocity=None):
@@ -139,8 +138,10 @@ class Pendulum(PendulumBase):
     def GetPivot(self):
         return self.x, self.y
 
-    def GetPos(self, bobId):
-        index = self.idList.index(bobId)
+    def GetPos(self, bobId=None):
+        index = self.bobCount
+        if bobId != None:
+            index = self.idList.index(bobId)
         x = self.x
         y = self.y
         for i in range(index):
@@ -170,11 +171,11 @@ class Pendulum(PendulumBase):
             if self.RodCollision(mx, my, x, y, nx, ny, 5):
                 return True
             if self.BobCollision(mx, my, nx, ny, self.radius):
-                return True            
+                return True
 
             x = nx
             y = ny
-        
+
         return False
 
     def Distance(self, x1, y1, x2, y2):
@@ -190,7 +191,7 @@ class Pendulum(PendulumBase):
             d = (p[(i + 1) % 4][0] - p[i][0]) * (my - p[i][1]) - (mx - p[i][0]) * (p[(i + 1) % 4][1] - p[i][1])
             if d > 0:
                 return False
-        
+
         return True
 
     def GetRect(self, x1, y1, x2, y2, l):
@@ -207,7 +208,7 @@ class Pendulum(PendulumBase):
         p = 4*[(0, 0)]
         p[0] = (x1 - dx, y1 + dy)
         p[1] = (x2 - dx, y2 + dy)
-        p[2] = (x2 + dx, y2 - dy) 
+        p[2] = (x2 + dx, y2 - dy)
         p[3] = (x1 + dx, y1 - dy)
 
         return p
@@ -225,13 +226,13 @@ class Pendulum(PendulumBase):
             dc.SetPen(wx.Pen(wx.BLACK))
             dc.DrawCircle(x, y, self.radius - 3)
             return
-            
+
         nx = x + sin(self.angles[0]) * self.l[0] * self.scale
-        ny = y + cos(self.angles[0]) * self.l[0] * self.scale 
+        ny = y + cos(self.angles[0]) * self.l[0] * self.scale
         if self.selected:
             dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
             dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
-        
+
             dc.DrawCircle(x, y, self.radius)
             points = self.GetRect(x, y, nx, ny, 2)
             dc.DrawPolygon(points)
@@ -240,7 +241,7 @@ class Pendulum(PendulumBase):
         dc.SetPen(wx.Pen(wx.BLACK))
         dc.DrawLine(x, y, nx, ny)
         dc.DrawCircle(x, y, self.radius - 3)
-    
+
         for i in range(1, self.bobCount):
 
             if self.selected:
@@ -249,19 +250,19 @@ class Pendulum(PendulumBase):
 
                 dc.DrawCircle(nx, ny, self.radius + 4)
                 points = self.GetRect(
-                    nx + tx, 
-                    ny + ty, 
-                    nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, 
-                    ny + cos(self.angles[i]) * self.l[i] * self.scale + ty, 
+                    nx + tx,
+                    ny + ty,
+                    nx + sin(self.angles[i]) * self.l[i] * self.scale + tx,
+                    ny + cos(self.angles[i]) * self.l[i] * self.scale + ty,
                     3)
                 dc.DrawPolygon(points)
 
             dc.SetBrush(wx.Brush(wx.BLACK))
             dc.SetPen(wx.Pen(wx.BLACK))
             dc.DrawLine(
-                nx + tx, 
-                ny + ty, 
-                nx + sin(self.angles[i]) * self.l[i] * self.scale + tx, 
+                nx + tx,
+                ny + ty,
+                nx + sin(self.angles[i]) * self.l[i] * self.scale + tx,
                 ny + cos(self.angles[i]) * self.l[i] * self.scale + ty)
 
             dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
@@ -276,7 +277,7 @@ class Pendulum(PendulumBase):
             dc.SetBrush(wx.Brush(wx.Colour(186, 170, 221)))
             dc.SetPen(wx.Pen(wx.Colour(186, 170, 221)))
             dc.DrawCircle(nx, ny, self.radius + 4)
-        
+
         dc.SetBrush(wx.Brush(wx.Colour(68, 68, 68)))
         dc.SetPen(wx.Pen(wx.Colour(68, 68, 68)))
         dc.DrawCircle(nx, ny, self.radius)
