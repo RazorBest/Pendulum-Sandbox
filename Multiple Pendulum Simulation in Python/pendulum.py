@@ -157,26 +157,28 @@ class Pendulum(PendulumBase):
                 (over any bob or its rods)
         """
         if self.bobCount == 0:
-            return
+            return (0, 0, 0)
         x = self.x
         y = self.y
 
         if self.BobCollision(mx, my, x, y, self.radius):
-            return True
+            return (1, 0, 0)
 
         for i in range(0, self.bobCount):
             nx = x + sin(self.angles[i]) * self.l[i] * self.scale
             ny = y + cos(self.angles[i]) * self.l[i] * self.scale
 
             if self.RodCollision(mx, my, x, y, nx, ny, 5):
-                return True
+                return (1, 0, 0)
             if self.BobCollision(mx, my, nx, ny, self.radius):
-                return True
+                if i == self.bobCount - 1:
+                    return (0, self.idList[i], 1)
+                return (0, self.idList[i], 0)
 
             x = nx
             y = ny
 
-        return False
+        return (0, 0, 0)
 
     def Distance(self, x1, y1, x2, y2):
         return sqrt((x1 - x2)**2 + (y1 - y2)**2)
@@ -187,12 +189,16 @@ class Pendulum(PendulumBase):
     def RodCollision(self, mx, my, x1, y1, x2, y2, l):
         p = self.GetRect(x1, y1, x2, y2, l)
 
-        for i in range(4):
-            d = (p[(i + 1) % 4][0] - p[i][0]) * (my - p[i][1]) - (mx - p[i][0]) * (p[(i + 1) % 4][1] - p[i][1])
-            if d > 0:
-                return False
+        ans = False
+        i = 0
+        j = 3
+        while i < 4: 
+            if ((p[i][1]>my) != (p[j][1]>my)) and (mx < (p[j][0]-p[i][0]) * (my-p[i][1]) / (p[j][1]-p[i][1]) + p[i][0]):
+                ans = not ans
+            j = i
+            i += 1
 
-        return True
+        return ans
 
     def GetRect(self, x1, y1, x2, y2, l):
         dx = 0
@@ -284,6 +290,9 @@ class Pendulum(PendulumBase):
 
     def SetSelected(self, selected=True):
         self.selected = selected
+
+    def IsSelected(self):
+        return self.selected
 
     def SetHovered(self, hovered=True):
         self.hover = hover
