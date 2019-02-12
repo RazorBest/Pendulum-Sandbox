@@ -201,6 +201,8 @@ class SimulationWindow(BufferedWindow):
 
     def OnLeaveWindow(self, e):
         self.state &= ~self.ENTERED_STATE
+        if self.state & self.CREATION_STATE:
+            self.FinishCreation()
 
     def OnMouseMove(self, e):
         x, y = e.GetX(), e.GetY()
@@ -244,12 +246,11 @@ class SimulationWindow(BufferedWindow):
 
         if pendulumId != 0:
             if not self.pendulumHandler.IsSelected(pendulumId):
-                print 'just came in'
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
                 self.dragPendulum = self.hoverPendulum
                 return
 
-            if self.hoverPendulum[3] != 0:
+            if self.hoverPendulum[3] != 0 and not (self.state & self.STARTED_STATE):
                 self.hoverPendulum = (0,)
                 self.StartCreation(pendulumId, x, y)
                 self.dragPendulum = (0,)
@@ -260,7 +261,8 @@ class SimulationWindow(BufferedWindow):
             #exttend a pendulum with a bob with pivot at coorinates (x, y)
             pendulumId = self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
             wx.FindWindowByName('explorer').AddPendulum(pendulumId)
-            self.hoverPendulum = (0, )
+            self.hoverPendulum = (0,)
+            self.dragPendulum = (0,)
             self.StartCreation(pendulumId, x, y)
 
     def OnLeftUp(self, e):
@@ -540,7 +542,7 @@ class PendulumHandler():
         for name, val in valueDict.items():
             self.variableList[pendulumId][bobId][name].val = val 
         
-        #self.RefreshLinkedVariables()
+        self.RefreshLinkedVariables()
 
         if send:
             self.SendParameters()

@@ -168,12 +168,13 @@ class Pendulum(PendulumBase):
             nx = x + sin(self.angles[i]) * self.l[i] * self.scale
             ny = y + cos(self.angles[i]) * self.l[i] * self.scale
 
-            if self.RodCollision(mx, my, x, y, nx, ny, 5):
-                return (1, 0, 0)
             if self.BobCollision(mx, my, nx, ny, self.radius):
                 if i == self.bobCount - 1:
                     return (0, self.idList[i], 1)
                 return (0, self.idList[i], 0)
+
+            if self.RodCollision(mx, my, x, y, nx, ny, 5):
+                return (1, 0, 0)
 
             x = nx
             y = ny
