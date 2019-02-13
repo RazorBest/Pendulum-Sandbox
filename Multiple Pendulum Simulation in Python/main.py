@@ -13,7 +13,6 @@ import re
 from pendulum import Pendulum
 from math import sqrt, atan2
 
-
 class BufferedWindow(wx.Window):
     def __init__(self, *args, **kwargs):
         kwargs['style'] = kwargs.setdefault('style', wx.NO_FULL_REPAINT_ON_RESIZE | wx.NO_FULL_REPAINT_ON_RESIZE)
@@ -198,6 +197,7 @@ class SimulationWindow(BufferedWindow):
 
     def OnEnterWindow(self, e):
         self.state |= self.ENTERED_STATE
+        self.SetFocus()
 
     def OnLeaveWindow(self, e):
         self.state &= ~self.ENTERED_STATE
@@ -504,10 +504,10 @@ class PendulumHandler():
         else:
             self.pendulumStack[pendulumId].AddBob(self.bobId)
         self.variableList[pendulumId][self.bobId] = self.DataDict(self.defaultVariableList)
-            
+
         if external:
             self.RefreshLinkedPendulum(pendulumId, self.bobId)
-        
+
         return self.bobId
 
     def RemoveBob(self, pendulumId, bobId):
@@ -540,8 +540,8 @@ class PendulumHandler():
 
     def SetParameters(self, pendulumId, bobId, valueDict, send=False):
         for name, val in valueDict.items():
-            self.variableList[pendulumId][bobId][name].val = val 
-        
+            self.variableList[pendulumId][bobId][name].val = val
+
         self.RefreshLinkedVariables()
 
         if send:
@@ -784,7 +784,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
 
         self.sizersDict = {}
 
-        self.sizer.Layout()      
+        self.sizer.Layout()
 
         self.Bind(wx.EVT_BUTTON, self.OnAddBobButton, addBobButton)
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
@@ -883,11 +883,11 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
     def OnPaneChanged(self, e):
         self.GetParent().SendSizeEvent()
 
-class Explorer(wx.ScrolledWindow):
+class Explorer(wx.ScrolledCanvas):
     def __init__(self, *args, **kwargs):
         kwargs['name'] = 'explorer'
 
-        wx.ScrolledWindow.__init__(self, *args, **kwargs)
+        wx.ScrolledCanvas.__init__(self, *args, **kwargs)
 
         # Set style
         self.SetBackgroundColour(wx.Colour(200, 200, 200))
@@ -911,7 +911,7 @@ class Explorer(wx.ScrolledWindow):
         self.pendulumHandler = self.simulationWindow.GetPendulumHandler()
 
         self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
-        self.Bind(wx.EVT_MOUSE_CAPTURE_CHANGED, self.OnCaptureChanged)
+        self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnCaptureLost)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow)
         self.Bind(wx.EVT_ENTER_WINDOW, self.OnEnterWindow)
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnWheel)
@@ -943,13 +943,16 @@ class Explorer(wx.ScrolledWindow):
 
         return pendulumId
 
-    def OnCaptureChanged(self, e):
+    def OnCaptureLost(self, e):
         print 'capture changed'
 
     def OnLeaveWindow(self, e):
-        self.simulationWindow.SetFocus()
+        print 'left me'
+        self.ReleaseMouse()
+        #self.simulationWindow.SetFocus()
 
     def OnEnterWindow(self, e):
+        self.CaptureMouse()
         self.SetFocus()
 
     def OnWheel(self, e):
@@ -1026,21 +1029,6 @@ class MainFrame(wx.Frame):
 
         #self.CreateStatusBar() # A Statusbar in the bottom of the frame
 
-        #Setting up the menu
-        filemenu = wx.Menu()
-
-        # wx.ID_ABOUT and wx.ID_EXIT are standards provided by wxWidgets
-        menuOpen = filemenu.Append(wx.ID_OPEN, "Open", "Open a file from the system")
-        filemenu.AppendSeparator()
-        menuAbout = filemenu.Append(wx.ID_ABOUT, "About", "Information about this program")
-        filemenu.AppendSeparator()
-        menuExit = filemenu.Append(wx.ID_EXIT, "Exit", "Terminate the program")
-
-        # Creating the menubar
-        menuBar = wx.MenuBar()
-        menuBar.Append(filemenu, "File") # Adding the "filemenu" to the MenuBar
-        #self.SetMenuBar(menuBar) # Adding the MenuBar to the Frame content
-
         toolbar = self.CreateToolBar()
         self.selectionTool = toolbar.AddRadioTool(wx.ID_ANY, 'Selection', wx.Bitmap('icons/selection.png'))
         self.moveTool = toolbar.AddRadioTool(wx.ID_ANY, 'Move', wx.Bitmap('icons/move.png'))
@@ -1052,9 +1040,6 @@ class MainFrame(wx.Frame):
         toolbar.Realize()
 
         # Set events
-        self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
-        self.Bind(wx.EVT_MENU, self.OnAbout, menuAbout)
-        self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         self.Bind(wx.EVT_TOOL, self.OnChangeCursor, self.selectionTool)
         self.Bind(wx.EVT_TOOL, self.OnChangeCursor, self.moveTool)
         self.Bind(wx.EVT_TOOL, self.OnTogglePlay, self.playTool)
@@ -1079,7 +1064,6 @@ class MainFrame(wx.Frame):
             self.simulationWindow.ChangeCursor(wx.CURSOR_ARROW)
         elif id == self.moveTool.GetId():
             self.simulationWindow.ChangeCursor(wx.CURSOR_SIZING)
-            #self.ChangeCursor(wx.CURSOR_SIZING)
 
     def OnTogglePlay(self, e):
         id = e.GetId()
@@ -1120,9 +1104,6 @@ class MainFrame(wx.Frame):
 def main():
     app = wx.App(False)
     frame = MainFrame(None, title='Pendulum Sandbox')
-
-    #drawingPanel = MyPanel(frame, -1)
-    #drawingPanel.Bind(wx.EVT_PAINT, draw)
 
     frame.Show(True)
     app.MainLoop()
