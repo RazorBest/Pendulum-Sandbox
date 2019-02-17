@@ -14,6 +14,9 @@ from pendulum import Pendulum
 from math import sqrt, atan2
 
 class BufferedWindow(wx.Window):
+    """A class used for drawing a BufferdWindow
+    It prevents flickering.
+    """
     def __init__(self, *args, **kwargs):
         kwargs['style'] = kwargs.setdefault('style', wx.NO_FULL_REPAINT_ON_RESIZE | wx.NO_FULL_REPAINT_ON_RESIZE)
         wx.Window.__init__(self, *args, **kwargs)
@@ -42,7 +45,6 @@ class BufferedWindow(wx.Window):
 
     def OnPaint(self, e=None):
         self.Draw(wx.BufferedPaintDC(self, self._Buffer))
-        #e.Skip()
 
     # Does the same thing as OnPaint but is called by the client, not from a PaintEvent handler
     def Paint(self):
@@ -61,7 +63,6 @@ class SimulationWindow(BufferedWindow):
     def __init__(self, *args, **kwargs):
         self.ticksPerSecond = 500
 
-        #kwargs['size'] = (300, 200)
         kwargs['name'] = 'simulationWindow'
         BufferedWindow.__init__(self, *args, **kwargs)
 
@@ -142,7 +143,6 @@ class SimulationWindow(BufferedWindow):
 
     def Draw(self, dc):
         dc.Clear()
-        #dc.SetBackground(wx.Brush(wx.WHITE))
 
         dc.SetDeviceOrigin(self.originX, self.originY)
 
@@ -197,7 +197,7 @@ class SimulationWindow(BufferedWindow):
 
     def OnEnterWindow(self, e):
         self.state |= self.ENTERED_STATE
-        self.SetFocus()
+        #self.SetFocus()
 
     def OnLeaveWindow(self, e):
         self.state &= ~self.ENTERED_STATE
@@ -445,12 +445,6 @@ class PendulumCreator():
 class DataHolder():
     def __init__(self, val=None):
         self.val = val
-
-    def Set(self, val):
-        self.val = val
-
-    def Get(self):
-        return self.val
 
 class PendulumHandler():
     """This class has a list of all the pendulums
@@ -861,7 +855,6 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         bobId = e.GetId()
 
         self.bobDict[bobId].Close()
-        #self.pendulumHandler.RemoveBob(self.pendulumId, bobId)
         sizer = self.sizersDict[bobId]
         for child in sizer.GetChildren():
             child.DeleteWindows()
@@ -947,13 +940,14 @@ class Explorer(wx.ScrolledCanvas):
         print 'capture changed'
 
     def OnLeaveWindow(self, e):
-        print 'left me'
-        self.ReleaseMouse()
+        pass
+        #self.ReleaseMouse()
         #self.simulationWindow.SetFocus()
 
     def OnEnterWindow(self, e):
-        self.CaptureMouse()
-        self.SetFocus()
+        pass
+        #self.CaptureMouse()
+        #self.SetFocus()
 
     def OnWheel(self, e):
         e.Skip()
@@ -962,11 +956,13 @@ class UserResizableWindow(wx.Window):
     def __init__(self, *args, **kwargs):
         wx.Window.__init__(self, *args, **kwargs)
 
+        self.spacerSize = 10
+
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         explorer = Explorer(self, size=(180, 0))
         self.SetBackgroundColour(wx.Colour(180, 180, 180))
         sizer.Add(explorer, 1, wx.EXPAND)
-        sizer.AddSpacer(10)
+        sizer.AddSpacer(self.spacerSize)
         self.SetSizer(sizer)
         self.SetMinSize(explorer.GetSize())
 
@@ -975,47 +971,40 @@ class UserResizableWindow(wx.Window):
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMousePress)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseRelease)
+        self.Bind(wx.EVT_ENTER_WINDOW, self.OnMouseEnter)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnMouseLeave)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnMouseCaptureLost)
 
     def OnMouseMove(self, e):
         x = e.GetX()
         width, height = self.GetSize()
-        if (x >= width - 8):
-            self.SetCursor(wx.Cursor(wx.CURSOR_SIZEWE))
-        else:
-            self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
-        if self.sizing == True and x + 7 > 10:
-            self.SetSize(x + 7, height)
-
+        if self.sizing == True:
+            if x > self.spacerSize:
+                self.SetSize(x, height)
+            elif width > self.spacerSize + 1:
+                self.SetSize(self.spacerSize + 1, height)
 
     def OnMousePress(self, e):
-        x = e.GetX()
-
-        width = self.GetSize()[0]
-        if (x >= width - 8):
-            self.sizing = True
-            self.CaptureMouse()
+        self.sizing = True
+        self.CaptureMouse()
 
     def OnMouseRelease(self, e):
         self.sizing = False
-        self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
         self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
         self.GetParent().Layout()
         if self.HasCapture():
             self.ReleaseMouse()
+
+    def OnMouseEnter(self, e):
+        self.SetCursor(wx.Cursor(wx.CURSOR_SIZEWE))
 
     def OnMouseLeave(self, e):
         if not self.sizing:
             self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
 
     def OnMouseCaptureLost(self, e):
-        print 'lost'
         if self.HasCapture():
             self.ReleaseMouse()
-
-    def OnMouseCaptureChanged(self, e):
-        print 'changed'
 
 class MainFrame(wx.Frame):
 
@@ -1026,8 +1015,6 @@ class MainFrame(wx.Frame):
 
         wx.Frame.__init__(self, parent, title=title, size=(width, height),
             style=wx.DEFAULT_FRAME_STYLE ^ wx.CLIP_CHILDREN)
-
-        #self.CreateStatusBar() # A Statusbar in the bottom of the frame
 
         toolbar = self.CreateToolBar()
         self.selectionTool = toolbar.AddRadioTool(wx.ID_ANY, 'Selection', wx.Bitmap('icons/selection.png'))
@@ -1075,27 +1062,6 @@ class MainFrame(wx.Frame):
     def OnReload(self, e):
         self.GetToolBar().ToggleTool(self.pauseTool.GetId(), True)
         self.simulationWindow.Reload()
-
-    def OnAbout(self, e):
-        # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets
-        dlg = wx.MessageDialog(self, "A small editor", "About Sample Editor", wx.OK)
-        dlg.ShowModal() # show it
-        dlg.Destroy() # finally destroy it when finished
-
-    def OnExit(self, e):
-        self.Close(True)
-
-    def OnOpen(self, e):
-        """Open a file"""
-        self.dirname = ''
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
-        if dlg.ShowModal() == wx.ID_OK:
-            self.filename = dlg.GetFilename()
-            self.dirname = dlg.GetDirectory()
-            f = open(os.path.join(self.dirname, self.filename), 'r')
-            self.control.SetValue(f.read())
-            f.close()
-        dlg.Destroy()
 
     def OnClose(self, e):
         self.simulationWindow.Close(True)
