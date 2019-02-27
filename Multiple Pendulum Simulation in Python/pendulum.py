@@ -78,6 +78,9 @@ class PendulumBase():
             self.vels[index] = velocity
 
     def Accelerations(self):
+        if self.bobCount == 0:
+            return
+
         n = self.bobCount
         a = self.angles
 
@@ -156,12 +159,14 @@ class Pendulum(PendulumBase):
         """Check if the cursor at the coordinates (mx, my) is over the pendulum
                 (over any bob or its rods)
         """
-        if self.bobCount == 0:
-            return (0, 0, 0)
+
         x = self.x
         y = self.y
 
+        # Check collision for the pivot
         if self.BobCollision(mx, my, x, y, self.radius):
+            if self.bobCount == 0:
+                return (1, 0, 1)
             return (1, 0, 0)
 
         for i in range(0, self.bobCount):
@@ -169,6 +174,7 @@ class Pendulum(PendulumBase):
             ny = y + cos(self.angles[i]) * self.l[i] * self.scale
 
             if self.BobCollision(mx, my, nx, ny, self.radius):
+                # If it is the last bob
                 if i == self.bobCount - 1:
                     return (0, self.idList[i], 1)
                 return (0, self.idList[i], 0)
