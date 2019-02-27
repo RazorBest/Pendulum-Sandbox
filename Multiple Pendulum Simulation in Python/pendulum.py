@@ -249,7 +249,7 @@ class Pendulum(PendulumBase):
         try:
             dc.DrawLine(x, y, nx, ny)
         except:
-            print "ERROR: " + "x = " + str(x) + "\ny = " + str(y)
+            print "ERRORin pendulum.py Draw(): " + "x = " + str(x) + "\ny = " + str(y)
             print "nx = " + str(nx) + "\nny = " + str(ny)
             return
         dc.DrawCircle(x, y, self.radius - 3)

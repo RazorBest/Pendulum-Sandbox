@@ -611,22 +611,33 @@ class PendulumHandler():
 
 class NumberValidator(wx.Validator):
     def __init__(self, *args, **kwargs):
-        wx.Validator.__init__(self, *args, **kwargs)
-
-        self.lastText = None
         self.min_val = None
         self.max_val = None
 
-    def SetMinMax(self, min_val, max_val):
-        self.min_val = min_val
-        self.max_val = max_val
+        if 'min_val' in kwargs:
+            self.min_val = kwargs['min_val']
+            del kwargs['min_val']
+        if 'max_val' in kwargs:
+            self.max_val = kwargs['max_val']
+            del kwargs['max_val']
+        
+        wx.Validator.__init__(self, *args, **kwargs)
+
+        self.lastText = None
+        
+
+    def SetMinMax(self, min_val=None, max_val=None):
+        if min_val != None:
+            self.min_val = min_val
+        if max_val != None:
+            self.max_val = max_val
 
         print str(self.min_val) + ' ' + str(self.max_val)
 
     def Clone(self):
         """Every validator must implement the Clone() method
         """
-        return NumberValidator()
+        return NumberValidator(max_val=self.max_val, min_val=self.min_val)
 
     def Validate(self, window):
         """ Validate the contents of a given text control
@@ -649,14 +660,15 @@ class NumberValidator(wx.Validator):
 
         if text != '':
             number = float(text)
-            print 'validating ' + str(self.min_val) + ' ' + str(self.max_val)
+            #print 'validating ' + str(self.min_val) + ' ' + str(self.max_val)
             if self.min_val != None:
                 if number < self.min_val:
-                    text = self.lastText
+                    text = str(self.min_val)
+                    #text = self.lastText
             if self.max_val != None:
                 if number > self.max_val:
-                    print 'NOT OK: ' + str(text)
-                    text = self.lastText
+                    text = str(self.max_val)
+                    #text = self.lastText
         self.lastText = text
 
         textCtrl.ChangeValue(text)
@@ -712,7 +724,7 @@ class NumberInputCtrl(wx.TextCtrl):
 class VariableEditor(wxcp.PyCollapsiblePane):
 
     variableNames = ['m', 'l', 'a', 'v']
-    variableBounds = {'m':[0, None], 'l':[0, 10000], 'a':[None, None], 'v':[0, 1000]}
+    variableBounds = {'m':[0, None], 'l':[0, 1500], 'a':[None, None], 'v':[0, 100]}
     defaultValues = [10, 100, 0, 0]
 
     def __init__(self, *args, **kwargs):
@@ -740,16 +752,19 @@ class VariableEditor(wxcp.PyCollapsiblePane):
 
     def SetVariables(self):
         for variableName, value in zip(self.variableNames, self.defaultValues):
-            self.AddVariable(variableName, value, val_min=self.variableBounds[variableName][0], val_max=self.variableBounds[variableName][1])
+            self.AddVariable(variableName, 
+                value, 
+                min_val=self.variableBounds[variableName][0], 
+                max_val=self.variableBounds[variableName][1])
 
-    def AddVariable(self, variableName, value='', val_min=None, val_max=None):
+    def AddVariable(self, variableName, value='', min_val=None, max_val=None):
         self.sizer.AddSpacer(5)
 
         label = wx.StaticText(self.GetPane(), label=variableName + ': ')
         self.sizer.Add(label, 0)
 
-        validator = NumberValidator()
-        validator.SetMinMax(val_min, val_max)
+        validator = NumberValidator(min_val=min_val, max_val=max_val)
+        #validator.SetMinMax(val_min, val_max)
         self.validators[variableName] = validator
         t = NumberInputCtrl(self.GetPane(),
             value=str(value),
