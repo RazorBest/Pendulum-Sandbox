@@ -397,6 +397,7 @@ class PendulumCreator():
     def SetPendulumId(self, pendulumId):
         self.pendulumId = pendulumId
         self.pivotX, self.pivotY = self.pendulumHandler.GetBobPos(pendulumId)
+        self.start = False
 
     def GetPendulumId(self):
         return self.pendulumId
