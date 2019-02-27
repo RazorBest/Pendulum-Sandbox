@@ -238,12 +238,15 @@ class SimulationWindow(BufferedWindow):
     def OnLeftDown(self, e):
         x, y = self.TranslateCoord(e.GetX(), e.GetY())
 
+        # If the cursor is in the moving state, 
+        #   meaning the user can only move through the working space and he can't create pendulums or interact with them
         if self.state & self.MOVING_STATE:
             return
 
         self.hoverPendulum = self.pendulumHandler.PendulumCollision(x, y)
         pendulumId = self.hoverPendulum[0]
 
+        # If the cursor is over any pendulum 
         if pendulumId != 0:
             if not self.pendulumHandler.IsSelected(pendulumId):
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
@@ -257,10 +260,12 @@ class SimulationWindow(BufferedWindow):
             else:
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
                 self.dragPendulum = self.hoverPendulum
+        # If the cursor is not over any pendulum it means it can be created a new pendulum
+        # You cant create a pendulum if the simulation has started (that's waht the condition is checking)
         elif not (self.state & self.STARTED_STATE):
-            #exttend a pendulum with a bob with pivot at coorinates (x, y)
+            #extend a pendulum with a bob with its pivot at coorinates (x, y)
             pendulumId = self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
-            wx.FindWindowByName('explorer').AddPendulum(pendulumId)
+            wx.FindWindowByName('explorer').AddPendulum(pendulumId)  #This line should be handled in the future by the pendulumHandler
             self.hoverPendulum = (0,)
             self.dragPendulum = (0,)
             self.StartCreation(pendulumId, x, y)
