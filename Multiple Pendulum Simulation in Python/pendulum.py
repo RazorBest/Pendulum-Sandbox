@@ -193,7 +193,7 @@ class Pendulum(PendulumBase):
         ans = False
         i = 0
         j = 3
-        while i < 4: 
+        while i < 4:
             if ((p[i][1]>my) != (p[j][1]>my)) and (mx < (p[j][0]-p[i][0]) * (my-p[i][1]) / (p[j][1]-p[i][1]) + p[i][0]):
                 ans = not ans
             j = i
@@ -246,7 +246,12 @@ class Pendulum(PendulumBase):
 
         dc.SetBrush(wx.Brush(wx.BLACK))
         dc.SetPen(wx.Pen(wx.BLACK))
-        dc.DrawLine(x, y, nx, ny)
+        try:
+            dc.DrawLine(x, y, nx, ny)
+        except:
+            print "ERROR: " + "x = " + str(x) + "\ny = " + str(y)
+            print "nx = " + str(nx) + "\nny = " + str(ny)
+            return
         dc.DrawCircle(x, y, self.radius - 3)
 
         for i in range(1, self.bobCount):

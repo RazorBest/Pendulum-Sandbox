@@ -613,7 +613,15 @@ class NumberValidator(wx.Validator):
     def __init__(self, *args, **kwargs):
         wx.Validator.__init__(self, *args, **kwargs)
 
-        self.number = None
+        self.lastText = None
+        self.min_val = None
+        self.max_val = None
+
+    def SetMinMax(self, min_val, max_val):
+        self.min_val = min_val
+        self.max_val = max_val
+
+        print str(self.min_val) + ' ' + str(self.max_val)
 
     def Clone(self):
         """Every validator must implement the Clone() method
@@ -638,8 +646,20 @@ class NumberValidator(wx.Validator):
         if firstDot >= 0:
             #remove all '.' characters except the first
             text = text[:firstDot+1] + re.sub('[.]', '', text[firstDot+1:])
-        textCtrl.ChangeValue(text)
 
+        if text != '':
+            number = float(text)
+            print 'validating ' + str(self.min_val) + ' ' + str(self.max_val)
+            if self.min_val != None:
+                if number < self.min_val:
+                    text = self.lastText
+            if self.max_val != None:
+                if number > self.max_val:
+                    print 'NOT OK: ' + str(text)
+                    text = self.lastText
+        self.lastText = text
+
+        textCtrl.ChangeValue(text)
         #ChangeValue() function resets the position of the insertion point to 0, so we have to set it back
         textCtrl.SetInsertionPoint(insertionPointPosition)
 
@@ -692,6 +712,7 @@ class NumberInputCtrl(wx.TextCtrl):
 class VariableEditor(wxcp.PyCollapsiblePane):
 
     variableNames = ['m', 'l', 'a', 'v']
+    variableBounds = {'m':[0, None], 'l':[0, 10000], 'a':[None, None], 'v':[0, 1000]}
     defaultValues = [10, 100, 0, 0]
 
     def __init__(self, *args, **kwargs):
@@ -719,15 +740,16 @@ class VariableEditor(wxcp.PyCollapsiblePane):
 
     def SetVariables(self):
         for variableName, value in zip(self.variableNames, self.defaultValues):
-            self.AddVariable(variableName, value)
+            self.AddVariable(variableName, value, val_min=self.variableBounds[variableName][0], val_max=self.variableBounds[variableName][1])
 
-    def AddVariable(self, variableName, value=''):
+    def AddVariable(self, variableName, value='', val_min=None, val_max=None):
         self.sizer.AddSpacer(5)
 
         label = wx.StaticText(self.GetPane(), label=variableName + ': ')
         self.sizer.Add(label, 0)
 
         validator = NumberValidator()
+        validator.SetMinMax(val_min, val_max)
         self.validators[variableName] = validator
         t = NumberInputCtrl(self.GetPane(),
             value=str(value),
