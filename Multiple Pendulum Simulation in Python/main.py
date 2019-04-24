@@ -53,6 +53,7 @@ class BufferedWindow(wx.Window):
 class SimulationWindow(BufferedWindow):
     main_thread = None
 
+    #Giving each state a unique bit
     MOVING_STATE = 1
     ENTERED_STATE = 2
     CREATION_STATE = 4
@@ -148,13 +149,14 @@ class SimulationWindow(BufferedWindow):
 
         self.grid.Draw(dc)
 
-        #drawing the origin
+        #Drawing the origin
         dc.DrawCircle(0, 0, 3)
         dc.DrawLine(-15, 0, 15, 0)
         dc.DrawLine(0, -15, 0, 15)
 
         dc.SetUserScale(self.scale, self.scale)
 
+        #Draws a light gray circle for the space in which will be the future pivot
         if not (self.state & (self.MOVING_STATE | self.STARTED_STATE)) and self.hoverPendulum[0] == 0 and self.state & self.ENTERED_STATE:
             dc.SetPen(wx.Pen(wx.Colour(175, 175, 175)))
             dc.SetBrush(wx.Brush(wx.Colour(175, 175, 175)))
@@ -361,6 +363,8 @@ class Grid():
         self.colour = colour
 
     def Draw(self, dc):
+        """Draws a set of parallel, horizontal and vertical lines, inside a rectangle determined by the x, y, w, h variables
+            (x,y) is the upper-left corner of the rectangle and w, h are it dimensions"""
         dc.SetPen(wx.Pen(wx.Colour(self.colourCode)))
         dc.SetBrush(wx.Brush(wx.Colour(self.colourCode)))
 
@@ -369,16 +373,19 @@ class Grid():
         x = self.x
         y = self.y
 
+        #Draws the horizontal lines
         l1 = y - y % self.space
         while l1 <= y + h:
             dc.DrawLine(x, l1, x + w, l1)
             l1 += self.space
 
+        #Draws the vertical lines
         c1 = x - x % self.space
         while c1 <= x + w:
             dc.DrawLine(c1, y, c1, y + h)
             c1 += self.space
 
+        #Draws the Ox and Oy lines
         dc.SetPen(wx.Pen(wx.Colour(wx.BLACK)))
         dc.SetBrush(wx.Brush(wx.Colour(wx.BLACK)))
         dc.DrawLine(x, 0, x + w, 0)
@@ -1059,6 +1066,7 @@ class MainFrame(wx.Frame):
         wx.Frame.__init__(self, parent, title=title, size=(width, height),
             style=wx.DEFAULT_FRAME_STYLE ^ wx.CLIP_CHILDREN)
 
+        #Creating the toolbar with its items
         toolbar = self.CreateToolBar()
         self.selectionTool = toolbar.AddRadioTool(wx.ID_ANY, 'Selection', wx.Bitmap('icons/selection.png'))
         self.moveTool = toolbar.AddRadioTool(wx.ID_ANY, 'Move', wx.Bitmap('icons/move.png'))
