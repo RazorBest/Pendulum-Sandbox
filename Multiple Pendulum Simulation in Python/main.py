@@ -95,7 +95,8 @@ class SimulationWindow(BufferedWindow):
         self.pause = True
 
         self.gridSpace = 100
-        self.grid = Grid(space=self.gridSpace, colourCode=(200, 200, 200))
+        self.grid = Grid(self, space=self.gridSpace, minScaleLim=0.2, maxScaleLim=6, colourCode=(200, 200, 200))
+        self.Bind(wx.EVT_MOUSEWHEEL, self.grid.OnMouseWheel)
 
         self.timer = wx.Timer(self)
 
@@ -288,20 +289,6 @@ class SimulationWindow(BufferedWindow):
             self.originY -= (my - self.originY) * mag / self.scale
             self.scale += mag
 
-            if self.gridSpace * self.scale < 50:
-                self.gridSpace = 100 / self.scale
-
-            if self.gridSpace * self.scale > 100:
-                self.gridSpace = 50 / self.scale
-
-            self.grid.SetSpace(self.gridSpace * self.scale)
-            width, height = self.GetSize()
-            self.grid.SetWidth(width + 200)
-            self.grid.SetHeight(height + 200)
-
-            self.grid.SetX(-self.originX)
-            self.grid.SetY(-self.originY)
-
     def GetPendulumHandler(self):
         return self.pendulumHandler
 
@@ -321,6 +308,9 @@ class SimulationWindow(BufferedWindow):
         pendulumId = self.pendulumCreator.GetPendulumId()
         self.pendulumHandler.SelectPendulum(pendulumId)
 
+    def GetCameraOrigin(self):
+        return (self.originX, self.originY)
+
     def IsPaused(self):
         return self.pause
 
@@ -332,14 +322,19 @@ class SimulationWindow(BufferedWindow):
         print 'closing simulationWindow'
 
 class Grid():
-    def __init__(self, x=0, y=0, width=0, height=0, space=100, colourCode=wx.BLACK):
+    def __init__(self, parentWindow, x=0, y=0, width=0, height=0, space=100, minScaleLim=0.2, maxScaleLim=6, colourCode=wx.BLACK):
+        self.parentWindow = parentWindow
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.colourCode = colourCode
         self.space = space
+        self.gridSpace = space
+        self.minScaleLim = minScaleLim
+        self.maxScaleLim = maxScaleLim
         self.scale = 1
+        self.mouseScale = 1
 
     def SetX(self, x):
         self.x = x
@@ -361,6 +356,28 @@ class Grid():
 
     def SetColour(self, colour):
         self.colour = colour
+        
+    def OnMouseWheel(self, e):
+        mag = self.mouseScale * e.GetWheelRotation() / e.GetWheelDelta() / 25.
+        mx = e.GetX()
+        my = e.GetY()
+
+        if self.mouseScale + mag > self.minScaleLim and self.mouseScale + mag < self.maxScaleLim:
+            self.mouseScale += mag
+
+            if self.gridSpace * self.mouseScale < 50:
+                self.gridSpace = 100 / self. mouseScale
+
+            if self.gridSpace * self.mouseScale > 100:
+                self.gridSpace = 50 / self.mouseScale
+
+            self.SetSpace(self.gridSpace * self.mouseScale)
+
+            originX, originY = self.parentWindow.GetCameraOrigin()
+            self.SetX(-originX)
+            self.SetY(-originY)
+
+        e.Skip()
 
     def Draw(self, dc):
         """Draws a set of parallel, horizontal and vertical lines, inside a rectangle determined by the x, y, w, h variables
