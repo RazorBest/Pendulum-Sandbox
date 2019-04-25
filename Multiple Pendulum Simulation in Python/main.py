@@ -16,6 +16,7 @@ from math import sqrt, atan2
 #Here we create our custom event classes
 PendulumCreationStartEvent, EVT_PENDULUM_CREATION_START = wx.lib.newevent.NewEvent()
 PendulumCreationReadyEvent, EVT_PENDULUM_CREATION_READY = wx.lib.newevent.NewEvent()
+BobCreationReadyEvent, EVT_BOB_CREATION_READY = wx.lib.newevent.NewEvent()
 
 class BufferedWindow(wx.Window):
     """A class used for drawing a BufferdWindow
@@ -77,7 +78,7 @@ class SimulationWindow(BufferedWindow):
         self.pendulumHandler = PendulumHandler()
         self.pendulumCreator = PendulumCreator(self.pendulumHandler)
         
-        explorerPanel = UserResizableWindow(self, size=(150, 0), style=wx.BORDER_SIMPLE)
+        explorerPanel = UserResizableWindow(self, self.pendulumHandler, size=(150, 0), style=wx.BORDER_SIMPLE)
 
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
@@ -546,7 +547,7 @@ class PendulumHandler(wx.EvtHandler):
             external = False
 
         if not self.simulationWindow.IsStarted():
-            self.pendulumDict[pendulumId].AddBob(self.bobId)
+            self.CreateBob(pendulumId, self.bobId)
         elif self.pendulumDict.get(pendulumId) != None:
             self.bobStack.setdefault(pendulumId, [])
             self.bobStack[pendulumId].append(self.bobId)
@@ -558,6 +559,9 @@ class PendulumHandler(wx.EvtHandler):
             self.RefreshLinkedPendulum(pendulumId, self.bobId)
 
         return self.bobId
+
+    def CreateBob(self, pendulumId, bobId):
+        self.pendulumDict[pendulumId].AddBob(bobId)
 
     def RemoveBob(self, pendulumId, bobId):
         if self.pendulumDict.get(pendulumId) != None:
@@ -603,7 +607,9 @@ class PendulumHandler(wx.EvtHandler):
     def RefreshLinkedPendulum(self, pendulumId, bobId):
         for obj, thisId in self.pendulumLinker.items():
             if pendulumId == thisId:
-                obj.AddBob(bobId)
+                #obj.AddBob(bobId)
+                pendulumEvent = BobCreationReadyEvent(bobId=bobId)
+                wx.PostEvent(obj, pendulumEvent)
                 return
 
     def SetParameter(self, obj, value):
@@ -625,7 +631,7 @@ class PendulumHandler(wx.EvtHandler):
         self.pendulumStack = {}
         for pendulumId, bobList in self.bobStack.items():
             for bobId in bobList:
-                self.pendulumDict[pendulumId].AddBob(bobId)
+                self.CreateBob(pendulumId, bobId)
         self.bobStack = {}
 
     def PendulumCollision(self, mx, my):
@@ -750,17 +756,17 @@ class NumberValidator(wx.Validator):
         return self.number
 
 class NumberInputCtrl(wx.TextCtrl):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, parent, pendulumHandler, **kwargs):
         self.variableName = kwargs['variableName']
         del kwargs['variableName']
-        wx.TextCtrl.__init__(self, *args, **kwargs)
+        wx.TextCtrl.__init__(self, parent, **kwargs)
 
         self.Bind(wx.EVT_TEXT, self.OnText)
 
         pendulumId = self.GetGrandParent().GetGrandParent().pendulumId
         bobId = self.GetGrandParent().bobId
         self.simulationWindow = wx.FindWindowByName('simulationWindow')
-        self.pendulumHandler = self.simulationWindow.GetPendulumHandler()
+        self.pendulumHandler = pendulumHandler
         self.pendulumHandler.LinkVariable(self, pendulumId, bobId, self.variableName)
 
         self.OnText()
@@ -785,11 +791,11 @@ class VariableEditor(wxcp.PyCollapsiblePane):
     variableBounds = {'m':[0, None], 'l':[0, 1500], 'a':[None, None], 'v':[0, 100]}
     defaultValues = [10, 100, 0, 0]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, parent, pendulumHandler, **kwargs):
         self.bobId = kwargs['bobId']
         del kwargs['bobId']
 
-        wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
+        wxcp.PyCollapsiblePane.__init__(self, parent, **kwargs)
 
         # Set style
         self.SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
@@ -800,7 +806,7 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         self.GetPane().SetSizer(self.sizer)
 
         self.pendulumId = self.GetGrandParent().pendulumId
-        self.pendulumHandler = wx.FindWindowByName('simulationWindow').GetPendulumHandler()
+        self.pendulumHandler = pendulumHandler
 
         self.validators = dict.fromkeys(self.variableNames)
         self.SetVariables()
@@ -824,7 +830,9 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         validator = NumberValidator(min_val=min_val, max_val=max_val)
         #validator.SetMinMax(val_min, val_max)
         self.validators[variableName] = validator
-        t = NumberInputCtrl(self.GetPane(),
+        t = NumberInputCtrl(
+            self.GetPane(),
+            self.pendulumHandler,
             value=str(value),
             style=wx.BORDER_DEFAULT,
             validator=validator,
@@ -846,9 +854,9 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         self.pendulumHandler.RemoveBob(self.pendulumId, self.bobId)
 
 class PendulumEditor(wxcp.PyCollapsiblePane):
-    def __init__(self, pendulumId, *args, **kwargs):
+    def __init__(self, pendulumId, parent, pendulumHandler, **kwargs):
         self.pendulumId = pendulumId
-        wxcp.PyCollapsiblePane.__init__(self, *args, **kwargs)
+        wxcp.PyCollapsiblePane.__init__(self, parent, **kwargs)
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
         button = self.prepareButton(self.GetLabel())
@@ -856,7 +864,6 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.SetButton(button)
         self.SetExpanderDimensions(0, 0)
         self.SetLabel('')
-
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.GetPane().SetSizer(self.sizer)
 
@@ -867,8 +874,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         addBobButton = wx.Button(self.GetPane(), label='Add Bob')
         self.sizer.Add(addBobButton)
 
-        simulationWindow = wx.FindWindowByName('simulationWindow')
-        self.pendulumHandler = simulationWindow.GetPendulumHandler()
+        self.pendulumHandler = pendulumHandler
         self.pendulumHandler.LinkPendulum(self, pendulumId)
 
         self.sizersDict = {}
@@ -877,6 +883,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
 
         self.Bind(wx.EVT_BUTTON, self.OnAddBobButton, addBobButton)
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
+        self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
 
     def prepareButton(self, label=''):
         button = wx.Button(self, size=wx.Size(1000, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
@@ -913,13 +920,17 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
     def OnAddBobButton(self, e):
         self.AddBob()
 
-    def AddBob(self, bobId=None):
+    def OnBobReady(self, e):
+        print "bob is ready"
+        self.AddBob(e.bobId)
+
+    def AddBob(self, bobId):
         self.bobCount += 1
 
-        if bobId == None:
-            bobId = self.pendulumHandler.AddBob(obj=self)
-
-        t = VariableEditor(self.GetPane(), id=wx.ID_ANY,
+        t = VariableEditor(
+            self.GetPane(), 
+            self.pendulumHandler,
+            id=wx.ID_ANY,
             label='Bob ' + str(self.bobCount),
             agwStyle=wxcp.CP_GTK_EXPANDER,
             bobId=bobId)
@@ -972,16 +983,17 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.GetParent().SendSizeEvent()
 
 class Explorer(wx.ScrolledCanvas):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, parent, pendulumHandler, **kwargs):
         kwargs['name'] = 'explorer'
 
-        wx.ScrolledCanvas.__init__(self, *args, **kwargs)
+        wx.ScrolledCanvas.__init__(self, parent, **kwargs)
 
         # Set style
         self.SetBackgroundColour(wx.Colour(200, 200, 200))
         self.SetScrollbars(0, 20, 0, 50, xPos=20, yPos=0)
 
         self.pendulumCount = 0
+        self.pendulumEditorDict = {}
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -995,11 +1007,7 @@ class Explorer(wx.ScrolledCanvas):
 
         self.SetSizer(self.sizer)
 
-        self.simulationWindow = wx.FindWindowByName('simulationWindow')
-        self.pendulumHandler = self.simulationWindow.GetPendulumHandler()
-
-        #self.simulationWindow.Bind(EVT_PENDULUM_CREATION_READY, self.OnPendulumReady)
-        #self.simulationWindow.SetNextHandler(self)
+        self.pendulumHandler = pendulumHandler
 
         self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnCaptureLost)
@@ -1007,18 +1015,18 @@ class Explorer(wx.ScrolledCanvas):
         self.Bind(wx.EVT_ENTER_WINDOW, self.OnEnterWindow)
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnWheel)
         self.Bind(EVT_PENDULUM_CREATION_READY, self.OnPendulumReady)
+        self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
 
     def OnButton(self, e):
         #Send the event to the PendulumHandler
         pendulumEvent = PendulumCreationStartEvent(x=None, y=None)
         wx.PostEvent(self.pendulumHandler, pendulumEvent)
-        #############################################################
-
-        #self.AddPendulum(bobs=1)
 
     def OnPendulumReady(self, e):
-        print "Called OnPendulumReady from Explorer"
-        self.AddPendulum(self, e.pendulumId)
+        self.AddPendulum(e.pendulumId)
+
+    def OnBobReady(self, e):
+        wx.PostEvent(self.pendulumEditorDict[e.pendulumId], e)
 
     def AddPendulum(self, pendulumId, x=None, y=None, bobs=0):
         self.pendulumCount += 1
@@ -1032,8 +1040,10 @@ class Explorer(wx.ScrolledCanvas):
         pane = PendulumEditor(
             pendulumId,
             self,
+            self.pendulumHandler,
             label='Pendulum ' + str(self.pendulumCount),
             agwStyle=wxcp.CP_GTK_EXPANDER)
+        self.pendulumEditorDict[pendulumId] = pane
 
         for i in range(bobs):
             pane.AddBob() #Should send an event to pendulumHandler
@@ -1064,13 +1074,13 @@ class Explorer(wx.ScrolledCanvas):
         e.Skip()
 
 class UserResizableWindow(wx.Window):
-    def __init__(self, *args, **kwargs):
-        wx.Window.__init__(self, *args, **kwargs)
+    def __init__(self, parent, pendulumHandler, **kwargs):
+        wx.Window.__init__(self, parent, **kwargs)
 
         self.spacerSize = 10
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        explorer = Explorer(self, size=(180, 0))
+        explorer = Explorer(self, pendulumHandler, size=(180, 0))
         self.SetBackgroundColour(wx.Colour(180, 180, 180))
         sizer.Add(explorer, 1, wx.EXPAND)
         sizer.AddSpacer(self.spacerSize)
