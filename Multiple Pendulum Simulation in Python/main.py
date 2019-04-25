@@ -13,6 +13,10 @@ import re
 from pendulum import Pendulum
 from math import sqrt, atan2
 
+#Here we create our custom event classes
+PendulumCreationStartEvent, EVT_PENDULUM_CREATION_START = wx.lib.newevent.NewEvent()
+PendulumCreationReadyEvent, EVT_PENDULUM_CREATION_READY = wx.lib.newevent.NewEvent()
+
 class BufferedWindow(wx.Window):
     """A class used for drawing a BufferdWindow
     It prevents flickering.
@@ -72,6 +76,14 @@ class SimulationWindow(BufferedWindow):
 
         self.pendulumHandler = PendulumHandler()
         self.pendulumCreator = PendulumCreator(self.pendulumHandler)
+        
+        explorerPanel = UserResizableWindow(self, size=(150, 0), style=wx.BORDER_SIMPLE)
+
+        windowSizer = wx.BoxSizer(wx.HORIZONTAL)
+        windowSizer.Add(explorerPanel, 0, wx.EXPAND)
+        self.SetSizer(windowSizer)
+
+        self.pendulumHandler.SetPendulumEventHandler(explorerPanel.GetChildren()[0])
 
         self.Bind(wx.EVT_MOTION, self.OnMouseMove)
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
@@ -264,11 +276,11 @@ class SimulationWindow(BufferedWindow):
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
                 self.dragPendulum = self.hoverPendulum
         # If the cursor is not over any pendulum it means it can be created a new pendulum
-        # You cant create a pendulum if the simulation has started (that's waht the condition is checking)
+        # You can't create a pendulum if the simulation has started (that's what the condition is checking)
         elif not (self.state & self.STARTED_STATE):
             #extend a pendulum with a bob with its pivot at coorinates (x, y)
             pendulumId = self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
-            wx.FindWindowByName('explorer').AddPendulum(pendulumId)  #This line should be handled in the future by the pendulumHandler
+            #wx.FindWindowByName('explorer').AddPendulum(pendulumId)  #This line should be handled in the future by the pendulumHandler
             self.hoverPendulum = (0,)
             self.dragPendulum = (0,)
             self.StartCreation(pendulumId, x, y)
@@ -476,7 +488,7 @@ class DataHolder():
     def __init__(self, val=None):
         self.val = val
 
-class PendulumHandler():
+class PendulumHandler(wx.EvtHandler):
     """This class has a list of all the pendulums
     You can add/delete a pendulum
         and you can call tick/draw method on all pendulums
@@ -485,6 +497,8 @@ class PendulumHandler():
     defaultVariableList = {'m':10, 'l':100, 'a':0, 'v':0}
 
     def __init__(self):
+        wx.EvtHandler.__init__(self)
+
         self.pendulumDict = {}
         self.pendulumStack = {}
         self.bobStack = {}
@@ -495,7 +509,14 @@ class PendulumHandler():
         self.bobId = 0
         self.timeInterval = 1000
 
+        self.pendulumEventHandler = None
         self.simulationWindow = wx.FindWindowByName('simulationWindow')
+
+        self.Bind(EVT_PENDULUM_CREATION_START, self.OnPendulumCreation)
+
+    def OnPendulumCreation(self, e):
+        print "Creating a pendulum"
+        self.simulationWindow.AddPendulum()
 
     def AddPendulum(self, x, y, timeInterval=None):
         if timeInterval == None:
@@ -506,6 +527,10 @@ class PendulumHandler():
         else:
             self.pendulumStack[self.pendulumId] = Pendulum(x, y, timeInterval)
         self.variableList[self.pendulumId] = dict()
+
+        #Send the event to the SimulationWindow
+        pendulumEvent = PendulumCreationReadyEvent(pendulumId=self.pendulumId)
+        wx.PostEvent(self.pendulumEventHandler, pendulumEvent)
 
         return self.pendulumId
 
@@ -637,6 +662,9 @@ class PendulumHandler():
     def Draw(self, dc):
         for pendulum in self.pendulumDict.values():
             pendulum.Draw(dc)
+
+    def SetPendulumEventHandler(self, pendulumEventHandler):
+        self.pendulumEventHandler = pendulumEventHandler
 
 
 class NumberValidator(wx.Validator):
@@ -970,22 +998,36 @@ class Explorer(wx.ScrolledCanvas):
         self.simulationWindow = wx.FindWindowByName('simulationWindow')
         self.pendulumHandler = self.simulationWindow.GetPendulumHandler()
 
+        #self.simulationWindow.Bind(EVT_PENDULUM_CREATION_READY, self.OnPendulumReady)
+        #self.simulationWindow.SetNextHandler(self)
+
         self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnCaptureLost)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow)
         self.Bind(wx.EVT_ENTER_WINDOW, self.OnEnterWindow)
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnWheel)
+        self.Bind(EVT_PENDULUM_CREATION_READY, self.OnPendulumReady)
 
     def OnButton(self, e):
-        self.AddPendulum(bobs=1)
+        #Send the event to the PendulumHandler
+        pendulumEvent = PendulumCreationStartEvent(x=None, y=None)
+        wx.PostEvent(self.pendulumHandler, pendulumEvent)
+        #############################################################
 
-    def AddPendulum(self, pendulumId=None, x=None, y=None, bobs=0):
+        #self.AddPendulum(bobs=1)
+
+    def OnPendulumReady(self, e):
+        print "Called OnPendulumReady from Explorer"
+        self.AddPendulum(self, e.pendulumId)
+
+    def AddPendulum(self, pendulumId, x=None, y=None, bobs=0):
         self.pendulumCount += 1
-        if pendulumId == None:
+        """if pendulumId == None:
             if x != None and y != None:
                 pendulumId = self.pendulumHandler.AddPendulum(x, y)
             else:
                 pendulumId = self.simulationWindow.AddPendulum()
+        """
 
         pane = PendulumEditor(
             pendulumId,
@@ -994,7 +1036,7 @@ class Explorer(wx.ScrolledCanvas):
             agwStyle=wxcp.CP_GTK_EXPANDER)
 
         for i in range(bobs):
-            pane.AddBob()
+            pane.AddBob() #Should send an event to pendulumHandler
 
         pane.Expand()
         self.sizer.Prepend(pane, flag=wx.EXPAND)
@@ -1004,10 +1046,12 @@ class Explorer(wx.ScrolledCanvas):
         return pendulumId
 
     def OnCaptureLost(self, e):
-        print 'capture changed'
+        pass
+        #print 'capture changed'
 
     def OnLeaveWindow(self, e):
         pass
+        #These might be for the Windows 7 zoom bug
         #self.ReleaseMouse()
         #self.simulationWindow.SetFocus()
 
@@ -1104,11 +1148,11 @@ class MainFrame(wx.Frame):
 
         self.simulationWindow = SimulationWindow(self, size=(width, 0))
 
-        explorerPanel = UserResizableWindow(self.simulationWindow, size=(150, 0), style=wx.BORDER_SIMPLE)
+        """explorerPanel = UserResizableWindow(self.simulationWindow, size=(150, 0), style=wx.BORDER_SIMPLE)
 
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
-        self.simulationWindow.SetSizer(windowSizer)
+        self.simulationWindow.SetSizer(windowSizer)"""
 
         self.Centre()
         self.Show(True)
