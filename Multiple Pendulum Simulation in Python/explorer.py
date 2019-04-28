@@ -110,6 +110,8 @@ class NumberInputCtrl(wx.TextCtrl):
 
         self.OnText()
 
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
+
     #This function will be called when the user inserts/changes/deletes a character
     def OnText(self, e=None):
         validator = self.GetValidator()
@@ -123,6 +125,9 @@ class NumberInputCtrl(wx.TextCtrl):
                 when an the pendulum parameters are changed from an external object
         """
         self.ChangeValue(str(value))
+
+    def OnClose(self, e):
+        self.pendulumHandler.UnlinkVariable(self)
 
 class VariableEditor(wxcp.PyCollapsiblePane):
 
@@ -199,6 +204,8 @@ class VariableEditor(wxcp.PyCollapsiblePane):
 
     def OnClose(self, e):
         self.pendulumHandler.RemoveBob(self.pendulumId, self.bobId)
+        for child in self.GetPane().GetChildren():
+            child.Close()
 
 class PendulumEditor(wxcp.PyCollapsiblePane):
     def __init__(self, pendulumId, parent, pendulumHandler, **kwargs):

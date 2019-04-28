@@ -515,11 +515,9 @@ class PendulumHandler(wx.EvtHandler):
         self.Bind(explorer.EVT_BOB_CREATION_START, self.OnBobCreation)
 
     def OnPendulumCreation(self, e):
-        print "Creating a pendulum"
         pendulumId = self.simulationWindow.AddPendulum()
 
     def OnBobCreation(self, e):
-        print "Creating a bob"
         if e.values == None:
             e.values = {}
         self.CompleteValueDict(e.values)
@@ -601,6 +599,9 @@ class PendulumHandler(wx.EvtHandler):
 
     def LinkVariable(self, obj, pendulumId, bobId, name):
         self.bobLinker[obj] = self.variableList[pendulumId][bobId][name]
+
+    def UnlinkVariable(self, obj):
+        del self.bobLinker[obj]
 
     def LinkPendulum(self, obj, pendulumId):
         self.pendulumLinker[obj] = pendulumId
@@ -686,10 +687,7 @@ class PendulumHandler(wx.EvtHandler):
     def SetPendulumEventHandler(self, pendulumEventHandler):
         self.pendulumEventHandler = pendulumEventHandler
 
-
-
 class MainFrame(wx.Frame):
-
     """Derive a new class from Frame"""
     def __init__(self, parent, title):
         width = 800
