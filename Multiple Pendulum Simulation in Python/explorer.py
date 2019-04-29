@@ -62,7 +62,9 @@ class NumberValidator(wx.Validator):
             #remove all '.' characters except the first
             text = text[:firstDot+1] + re.sub('[.]', '', text[firstDot+1:])
 
-        if text != '':
+        isNumber = False
+        if text != '' and re.search('[0-9]', text) != None:
+            isNumber = True
             number = float(text)
             if self.min_val != None:
                 if number < self.min_val:
@@ -78,7 +80,7 @@ class NumberValidator(wx.Validator):
         #ChangeValue() function resets the position of the insertion point to 0, so we have to set it back
         textCtrl.SetInsertionPoint(insertionPointPosition)
 
-        if len(text) == 0:
+        if not isNumber:
             return False
 
         return True

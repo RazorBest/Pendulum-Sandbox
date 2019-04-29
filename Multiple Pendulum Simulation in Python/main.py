@@ -571,7 +571,8 @@ class PendulumHandler(wx.EvtHandler):
         pendulumEvent = explorer.BobCreationReadyEvent(bobId=self.bobId, valueDict=valueDict)
         wx.PostEvent(obj, pendulumEvent)
 
-        self.SetParameters(pendulumId, self.bobId, valueDict, send=True)
+        if not self.simulationWindow.IsStarted():
+            self.SetParameters(pendulumId, self.bobId, valueDict, send=True)
 
         return self.bobId
 
