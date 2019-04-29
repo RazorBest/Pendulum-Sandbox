@@ -357,9 +357,6 @@ class Explorer(wx.ScrolledCanvas):
         self.SetBackgroundColour(wx.Colour(200, 200, 200))
         self.SetScrollbars(0, 20, 0, 50, xPos=20, yPos=0)
 
-        self.pendulumCount = 0
-        self.pendulumEditorDict = {}
-
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
         self.button = wx.Button(self, label='+Add Pendulum')
@@ -371,6 +368,9 @@ class Explorer(wx.ScrolledCanvas):
         self.sizer.Prepend(0, 4, 0)
 
         self.SetSizer(self.sizer)
+
+        self.pendulumCount = 0
+        self.pendulumEditorDict = {}
 
         self.pendulumHandler = pendulumHandler
 
