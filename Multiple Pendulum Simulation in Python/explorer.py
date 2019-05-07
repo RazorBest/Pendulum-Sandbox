@@ -223,6 +223,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.SetLabel('')
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.GetPane().SetSizer(self.sizer)
+        self.SetBackgroundColour(wx.Colour(wx.RED))
 
         self.bobCount = 0
         self.bobList = []
@@ -244,7 +245,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.Bind(EVT_BOB_VARIABLES_UPDATE, self.OnBobVariablesUpdate)
 
     def prepareButton(self, label=''):
-        button = wx.Button(self, size=wx.Size(1000, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
+        button = wx.Button(self, size=wx.Size(150, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
         width, height = button.GetSize()
 
         bitmapInactive = wx.Bitmap(width, height)
@@ -359,6 +360,7 @@ class Explorer(wx.ScrolledCanvas):
         self.SetScrollbars(0, 20, 0, 50, xPos=20, yPos=0)
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.flexSizer = wx.FlexGridSizer(2, 0, 0)
 
         self.button = wx.Button(self, label='+Add Pendulum')
         self.button.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
@@ -367,6 +369,7 @@ class Explorer(wx.ScrolledCanvas):
         self.sizer.Prepend(0, 4, 0)
         self.sizer.Prepend(wx.StaticLine(self, size=(200, 3)), 0, wx.EXPAND)
         self.sizer.Prepend(0, 4, 0)
+        self.sizer.Prepend(self.flexSizer)
 
         self.SetSizer(self.sizer)
 
@@ -415,8 +418,10 @@ class Explorer(wx.ScrolledCanvas):
             pane.AddBob() #Should send an event to pendulumHandler
 
         pane.Expand()
-        self.sizer.Prepend(pane, flag=wx.EXPAND)
-        self.sizer.Layout()
+        self.flexSizer.Prepend(wx.Button(self))
+        self.flexSizer.Prepend(pane)
+        self.flexSizer.Layout()
+        #self.sizer.Layout()
         self.SendSizeEvent()
 
         return pendulumId

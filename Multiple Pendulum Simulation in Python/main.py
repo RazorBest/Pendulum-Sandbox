@@ -337,6 +337,7 @@ class Grid():
         self.height = height
         self.colourCode = colourCode
         self.space = space
+        self.gridSpaceStart = space
         self.gridSpace = space
         self.minScaleLim = minScaleLim
         self.maxScaleLim = maxScaleLim
@@ -384,9 +385,6 @@ class Grid():
             self.SetX(-originX)
             self.SetY(-originY)
 
-        self.scale = self.mouseScale
-        print self.scale
-
         e.Skip()
 
     def Draw(self, dc):
@@ -421,12 +419,14 @@ class Grid():
         #dc.DrawLine(0, -150, 100 * self.scale, -150)
 
         #Draws the numbers along the x axis
-        c1 = x - x % self.space
+        """c1 = x - x % self.space #c1 is the x coordonate of the starting point
         number = c1 / self.space
+        print number
         while c1 <= x + w:
-            dc.DrawText(str(number), c1, 0)
+            number = round(number, 2)
+            dc.DrawText("{0:.2f}".format(number), c1, 0)
             c1 += self.space
-            number += 1
+            number += self.gridSpaceStart / self.space""" 
 
 """class ZoomHandler(wx.EvtHandler):
     def __init__(self):
