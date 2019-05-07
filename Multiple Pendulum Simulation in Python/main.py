@@ -384,6 +384,9 @@ class Grid():
             self.SetX(-originX)
             self.SetY(-originY)
 
+        self.scale = self.mouseScale
+        print self.scale
+
         e.Skip()
 
     def Draw(self, dc):
@@ -414,6 +417,22 @@ class Grid():
         dc.SetBrush(wx.Brush(wx.Colour(wx.BLACK)))
         dc.DrawLine(x, 0, x + w, 0)
         dc.DrawLine(0, y, 0, y + h)
+
+        #dc.DrawLine(0, -150, 100 * self.scale, -150)
+
+        #Draws the numbers along the x axis
+        c1 = x - x % self.space
+        number = c1 / self.space
+        while c1 <= x + w:
+            dc.DrawText(str(number), c1, 0)
+            c1 += self.space
+            number += 1
+
+"""class ZoomHandler(wx.EvtHandler):
+    def __init__(self):
+        wx.EvtHandler(self)
+"""
+        
 
 class PendulumCreator():
     def __init__(self, pendulumHandler, pivotX=None, pivotY=None, pendulumId=0, x=0, y=0):
@@ -581,7 +600,11 @@ class PendulumHandler(wx.EvtHandler):
 
     def RemoveBob(self, pendulumId, bobId):
         if self.pendulumDict.get(pendulumId) != None:
-            self.pendulumDict[pendulumId].RemoveBob(bobId)
+            if pendulumId in self.futureBobDict:
+                if bobId in self.futureBobDict[pendulumId]:
+                    self.futureBobDict[pendulumId].remove(bobId)
+            else:
+                self.pendulumDict[pendulumId].RemoveBob(bobId)
         else:
             self.futurePendulumDict[pendulumId].RemoveBob(bobId)
         del self.variableList[pendulumId][bobId]

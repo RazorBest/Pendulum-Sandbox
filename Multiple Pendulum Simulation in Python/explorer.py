@@ -205,6 +205,7 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         return self.bobId
 
     def OnClose(self, e):
+        print "Removed bob with id " + str(self.bobId)
         self.pendulumHandler.RemoveBob(self.pendulumId, self.bobId)
         for child in self.GetPane().GetChildren():
             child.Close()
