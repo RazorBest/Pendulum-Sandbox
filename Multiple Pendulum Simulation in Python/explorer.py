@@ -223,7 +223,6 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.SetLabel('')
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.GetPane().SetSizer(self.sizer)
-        self.SetBackgroundColour(wx.Colour(wx.RED))
 
         self.bobCount = 0
         self.bobList = []
@@ -241,11 +240,12 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
 
         self.Bind(wx.EVT_BUTTON, self.OnAddBobButton, addBobButton)
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
         self.Bind(EVT_BOB_VARIABLES_UPDATE, self.OnBobVariablesUpdate)
 
     def prepareButton(self, label=''):
-        button = wx.Button(self, size=wx.Size(150, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
+        button = wx.Button(self, size=wx.Size(100, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
         width, height = button.GetSize()
 
         bitmapInactive = wx.Bitmap(width, height)
@@ -349,6 +349,11 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
     def OnPaneChanged(self, e):
         self.GetParent().SendSizeEvent()
 
+    def OnClose(self, e):
+        for bobEditor in self.bobDict.values():
+            bobEditor.Close()
+        self.pendulumHandler.RemovePendulum(self.pendulumId)
+
 class Explorer(wx.ScrolledCanvas):
     def __init__(self, parent, pendulumHandler, **kwargs):
         kwargs['name'] = 'explorer'
@@ -360,7 +365,6 @@ class Explorer(wx.ScrolledCanvas):
         self.SetScrollbars(0, 20, 0, 50, xPos=20, yPos=0)
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.flexSizer = wx.FlexGridSizer(2, 0, 0)
 
         self.button = wx.Button(self, label='+Add Pendulum')
         self.button.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
@@ -369,12 +373,12 @@ class Explorer(wx.ScrolledCanvas):
         self.sizer.Prepend(0, 4, 0)
         self.sizer.Prepend(wx.StaticLine(self, size=(200, 3)), 0, wx.EXPAND)
         self.sizer.Prepend(0, 4, 0)
-        self.sizer.Prepend(self.flexSizer)
 
         self.SetSizer(self.sizer)
 
         self.pendulumCount = 0
         self.pendulumEditorDict = {}
+        self.pendulumCloseButtonDict = {}
 
         self.pendulumHandler = pendulumHandler
 
@@ -418,13 +422,30 @@ class Explorer(wx.ScrolledCanvas):
             pane.AddBob() #Should send an event to pendulumHandler
 
         pane.Expand()
-        self.flexSizer.Prepend(wx.Button(self))
-        self.flexSizer.Prepend(pane)
-        self.flexSizer.Layout()
-        #self.sizer.Layout()
+        pane.SetMaxSize(wx.Size(500, 500))
+        horizontalSizer = wx.BoxSizer(wx.HORIZONTAL)
+        horizontalSizer.Add(pane)
+        button = wx.Button(self, size=wx.Size(22, 22), label='x')
+        horizontalSizer.Add(button)
+        self.sizer.Prepend(horizontalSizer)
         self.SendSizeEvent()
 
+        #Set the event for the button
+        self.Bind(wx.EVT_BUTTON, self.OnRemovePendulumButton, button)
+
+        self.pendulumCloseButtonDict[button.GetId()] = {"pane":pane, "sizer":horizontalSizer}
+
         return pendulumId
+
+    def OnRemovePendulumButton(self, e):
+        pane = self.pendulumCloseButtonDict[e.GetId()]["pane"]
+        sizer = self.pendulumCloseButtonDict[e.GetId()]["sizer"]
+        pane.Close()
+        for child in sizer.GetChildren():
+            child.DeleteWindows()
+        self.sizer.Remove(sizer)
+
+        self.sizer.Layout()
 
     def OnCaptureLost(self, e):
         pass

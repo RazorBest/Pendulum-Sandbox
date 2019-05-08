@@ -609,6 +609,16 @@ class PendulumHandler(wx.EvtHandler):
             self.futurePendulumDict[pendulumId].RemoveBob(bobId)
         del self.variableList[pendulumId][bobId]
 
+    def RemovePendulum(self, pendulumId):
+        if self.pendulumDict.get(pendulumId) != None:
+            del self.pendulumDict[pendulumId]
+            if pendulumId in self.futureBobDict:
+                del self.futureBobDict[pendulumId]
+        else:
+           del self.futurePendulumDict[pendulumId]
+
+        del self.variableList[pendulumId]
+
     def DataDict(self, dct):
         new_dict = dict()
         for key, value in dct.iteritems():
