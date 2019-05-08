@@ -1,8 +1,7 @@
 from __future__ import division
 from numpy.linalg import solve
 from numpy import zeros, float64
-from math import sin, cos
-from math import sqrt
+from math import sin, cos, sqrt
 import wx
 import time
 
@@ -94,8 +93,15 @@ class PendulumBase():
                 self.A[2 * i][j] = - self.lc[j]
                 self.A[2 * i + 1][j] = - self.ls[j]
 
-            self.B[2 * i] = - self.lsv[i]
-            self.B[2 * i + 1] = self.lcv[i]
+            frictionX = abs(self.vels[i]) * 0.1 * cos(a[i])
+            frictionY = abs(self.vels[i]) * 0.1 * sin(a[i])
+
+            if self.vels[i] < 0:
+                frictionX *= -1
+                frictionY *= -1
+
+            self.B[2 * i] = - self.lsv[i] + frictionX
+            self.B[2 * i + 1] = self.lcv[i] + frictionY
             if i > 0:
                 self.B[2 * i] += self.B[2 * i - 2]
                 self.B[2 * i + 1] += self.B[2 * i - 1]
