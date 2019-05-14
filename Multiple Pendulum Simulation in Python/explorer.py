@@ -10,6 +10,24 @@ BobCreationStartEvent, EVT_BOB_CREATION_START = wx.lib.newevent.NewEvent()
 BobCreationReadyEvent, EVT_BOB_CREATION_READY = wx.lib.newevent.NewEvent()
 BobVariablesUpdateEvent, EVT_BOB_VARIABLES_UPDATE = wx.lib.newevent.NewEvent()
 
+def prepareButton(self, inactiveBgColour, currentBgColour, label='', width=20, height=20):
+    button = wx.Button(self, size=wx.Size(width, height), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
+
+    bitmapInactive = wx.Bitmap(width, height)
+    bitmapCurrent = wx.Bitmap(width, height)
+    dc = wx.MemoryDC()
+
+    # Draw the button in the inactive mode
+    self.drawButton(bitmapInactive, inactiveBgColour, label)
+
+    # Draw the button in the current mode(hover):
+    self.drawButton(bitmapCurrent, currentBgColour, label)
+
+    button.SetBitmap(bitmapInactive)
+    button.SetBitmapCurrent(bitmapCurrent)
+
+    return button 
+
 class NumberValidator(wx.Validator):
     def __init__(self, *args, **kwargs):
         self.min_val = None
@@ -216,7 +234,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         wxcp.PyCollapsiblePane.__init__(self, parent, **kwargs)
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
-        button = self.prepareButton(wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), self.GetLabel(), 100, 17)
+        button = prepareButton(wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), self.GetLabel(), 100, 17)
         button.SetLabel(self.GetLabel())
         self.SetButton(button)
         self.SetExpanderDimensions(0, 0)
@@ -243,24 +261,6 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
         self.Bind(EVT_BOB_VARIABLES_UPDATE, self.OnBobVariablesUpdate)
-
-    def prepareButton(self, inactiveBgColour, currentBgColour, label='', width=20, height=20, ):
-        button = wx.Button(self, size=wx.Size(width, height), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
-
-        bitmapInactive = wx.Bitmap(width, height)
-        bitmapCurrent = wx.Bitmap(width, height)
-        dc = wx.MemoryDC()
-
-        # Draw the button in the inactive mode
-        self.drawButton(bitmapInactive, inactiveBgColour, label)
-
-        # Draw the button in the current mode(hover):
-        self.drawButton(bitmapCurrent, currentBgColour, label)
-
-        button.SetBitmap(bitmapInactive)
-        button.SetBitmapCurrent(bitmapCurrent)
-
-        return button
 
     def drawButton(self, bitmap, colour, label=''):
         width, height = bitmap.GetSize()
