@@ -216,7 +216,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         wxcp.PyCollapsiblePane.__init__(self, parent, **kwargs)
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
-        button = self.prepareButton(self.GetLabel())
+        button = self.prepareButton(wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), self.GetLabel(), 100, 17)
         button.SetLabel(self.GetLabel())
         self.SetButton(button)
         self.SetExpanderDimensions(0, 0)
@@ -244,19 +244,18 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
         self.Bind(EVT_BOB_VARIABLES_UPDATE, self.OnBobVariablesUpdate)
 
-    def prepareButton(self, label=''):
-        button = wx.Button(self, size=wx.Size(100, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
-        width, height = button.GetSize()
+    def prepareButton(self, inactiveBgColour, currentBgColour, label='', width=20, height=20, ):
+        button = wx.Button(self, size=wx.Size(width, height), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
 
         bitmapInactive = wx.Bitmap(width, height)
         bitmapCurrent = wx.Bitmap(width, height)
         dc = wx.MemoryDC()
 
         # Draw the button in the inactive mode
-        self.drawButton(bitmapInactive, wx.Colour(130, 130, 130), label)
+        self.drawButton(bitmapInactive, inactiveBgColour, label)
 
         # Draw the button in the current mode(hover):
-        self.drawButton(bitmapCurrent, wx.Colour(155, 155, 155), label)
+        self.drawButton(bitmapCurrent, currentBgColour, label)
 
         button.SetBitmap(bitmapInactive)
         button.SetBitmapCurrent(bitmapCurrent)
@@ -390,6 +389,9 @@ class Explorer(wx.ScrolledCanvas):
         self.Bind(EVT_PENDULUM_CREATION_READY, self.OnPendulumReady)
         self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
 
+    def PrepareButton(self):
+        pass
+
     def OnButton(self, e):
         #Send the event to the PendulumHandler
         pendulumEvent = PendulumCreationStartEvent(x=None, y=None)
@@ -418,15 +420,23 @@ class Explorer(wx.ScrolledCanvas):
             agwStyle=wxcp.CP_GTK_EXPANDER)
         self.pendulumEditorDict[pendulumId] = pane
 
-        for i in range(bobs):
-            pane.AddBob() #Should send an event to pendulumHandler
+        #for i in range(bobs):
+        #    pane.AddBob() #Should send an event to pendulumHandler
 
         pane.Expand()
         pane.SetMaxSize(wx.Size(500, 500))
+        
+        button = wx.Button(self, size=wx.Size(17, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
+        button.SetBackgroundColour(wx.Colour(130, 130, 130))
+        button.SetLabelMarkup("<b>x</b>")
+
+        #Position the button and the pendulum panel
         horizontalSizer = wx.BoxSizer(wx.HORIZONTAL)
+        buttonSizer = wx.BoxSizer(wx.VERTICAL)
+        buttonSizer.AddSpacer(4)
+        buttonSizer.Add(button)
+        horizontalSizer.Add(buttonSizer)
         horizontalSizer.Add(pane)
-        button = wx.Button(self, size=wx.Size(22, 22), label='x')
-        horizontalSizer.Add(button)
         self.sizer.Prepend(horizontalSizer)
         self.SendSizeEvent()
 
