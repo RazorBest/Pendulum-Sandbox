@@ -10,23 +10,36 @@ BobCreationStartEvent, EVT_BOB_CREATION_START = wx.lib.newevent.NewEvent()
 BobCreationReadyEvent, EVT_BOB_CREATION_READY = wx.lib.newevent.NewEvent()
 BobVariablesUpdateEvent, EVT_BOB_VARIABLES_UPDATE = wx.lib.newevent.NewEvent()
 
-def prepareButton(self, inactiveBgColour, currentBgColour, label='', width=20, height=20):
-    button = wx.Button(self, size=wx.Size(width, height), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
+def prepareButton(parent, inactiveBgColour, currentBgColour, label='', width=20, height=20):
+    button = wx.Button(parent, size=wx.Size(width, height), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
 
     bitmapInactive = wx.Bitmap(width, height)
     bitmapCurrent = wx.Bitmap(width, height)
     dc = wx.MemoryDC()
 
     # Draw the button in the inactive mode
-    self.drawButton(bitmapInactive, inactiveBgColour, label)
+    drawButton(bitmapInactive, inactiveBgColour, label)
 
     # Draw the button in the current mode(hover):
-    self.drawButton(bitmapCurrent, currentBgColour, label)
+    drawButton(bitmapCurrent, currentBgColour, label)
 
     button.SetBitmap(bitmapInactive)
     button.SetBitmapCurrent(bitmapCurrent)
 
     return button 
+
+def drawButton(bitmap, colour, label=''):
+    width, height = bitmap.GetSize()
+    dc = wx.MemoryDC()
+    dc.SelectObjectAsSource(bitmap)
+    dc.Clear()
+    dc.SetBrush(wx.Brush(colour))
+    dc.SetPen(wx.Pen(colour))
+    dc.DrawRectangle(0, 0, width, height)
+    dc.SetBrush(wx.Brush(wx.BLACK))
+    dc.SetPen(wx.Pen(wx.BLACK))
+    dc.DrawLabel(label, wx.Rect(2, 1, width - 6, height - 15),
+        alignment=wx.ALIGN_LEFT|wx.ALIGN_TOP)
 
 class NumberValidator(wx.Validator):
     def __init__(self, *args, **kwargs):
@@ -234,7 +247,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         wxcp.PyCollapsiblePane.__init__(self, parent, **kwargs)
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
-        button = prepareButton(wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), self.GetLabel(), 100, 17)
+        button = prepareButton(self, wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), self.GetLabel(), 100, 17)
         button.SetLabel(self.GetLabel())
         self.SetButton(button)
         self.SetExpanderDimensions(0, 0)
@@ -261,19 +274,6 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
         self.Bind(EVT_BOB_VARIABLES_UPDATE, self.OnBobVariablesUpdate)
-
-    def drawButton(self, bitmap, colour, label=''):
-        width, height = bitmap.GetSize()
-        dc = wx.MemoryDC()
-        dc.SelectObjectAsSource(bitmap)
-        dc.Clear()
-        dc.SetBrush(wx.Brush(colour))
-        dc.SetPen(wx.Pen(colour))
-        dc.DrawRectangle(0, 0, width, height)
-        dc.SetBrush(wx.Brush(wx.BLACK))
-        dc.SetPen(wx.Pen(wx.BLACK))
-        dc.DrawLabel(label, wx.Rect(2, 1, width - 6, height - 15),
-            alignment=wx.ALIGN_LEFT|wx.ALIGN_TOP)
 
     def OnAddBobButton(self, e):
         pendulumEvent = BobCreationStartEvent(
@@ -311,8 +311,8 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         sizer2 = wx.BoxSizer(wx.HORIZONTAL)
         sizer1.Add(closeButton)
         sizer1.AddStretchSpacer(1)
-        sizer2.Add(t, 0)
         sizer2.Add(sizer1, 1, wx.EXPAND)
+        sizer2.Add(t, 0)
 
         self.sizersDict[bobId] = sizer2
         self.sizer.Insert(len(self.sizer.GetChildren()) - 1, sizer2, 0)
@@ -426,24 +426,22 @@ class Explorer(wx.ScrolledCanvas):
         pane.Expand()
         pane.SetMaxSize(wx.Size(500, 500))
         
-        button = wx.Button(self, size=wx.Size(17, 17), style=wx.BORDER_NONE|wx.BU_EXACTFIT)
-        button.SetBackgroundColour(wx.Colour(130, 130, 130))
-        button.SetLabelMarkup("<b>x</b>")
+        closeButton = prepareButton(self, wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), 'x', 17, 17)
 
         #Position the button and the pendulum panel
         horizontalSizer = wx.BoxSizer(wx.HORIZONTAL)
         buttonSizer = wx.BoxSizer(wx.VERTICAL)
         buttonSizer.AddSpacer(4)
-        buttonSizer.Add(button)
+        buttonSizer.Add(closeButton)
         horizontalSizer.Add(buttonSizer)
         horizontalSizer.Add(pane)
         self.sizer.Prepend(horizontalSizer)
         self.SendSizeEvent()
 
         #Set the event for the button
-        self.Bind(wx.EVT_BUTTON, self.OnRemovePendulumButton, button)
+        self.Bind(wx.EVT_BUTTON, self.OnRemovePendulumButton, closeButton)
 
-        self.pendulumCloseButtonDict[button.GetId()] = {"pane":pane, "sizer":horizontalSizer}
+        self.pendulumCloseButtonDict[closeButton.GetId()] = {"pane":pane, "sizer":horizontalSizer}
 
         return pendulumId
 
