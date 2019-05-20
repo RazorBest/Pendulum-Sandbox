@@ -7,6 +7,8 @@ import time
 
 class PendulumBase():
 
+    frictionCoefficient = 0.3
+
     def __init__(self, x, y, timeInterval):
         self.x = x
         self.y = y
@@ -93,8 +95,8 @@ class PendulumBase():
                 self.A[2 * i][j] = - self.lc[j]
                 self.A[2 * i + 1][j] = - self.ls[j]
 
-            frictionX = abs(self.vels[i]) * 0.1 * cos(a[i])
-            frictionY = abs(self.vels[i]) * 0.1 * sin(a[i])
+            frictionX = abs(self.vels[i]) * self.frictionCoefficient * cos(a[i])
+            frictionY = abs(self.vels[i]) * self.frictionCoefficient * sin(a[i])
 
             if self.vels[i] < 0:
                 frictionX *= -1

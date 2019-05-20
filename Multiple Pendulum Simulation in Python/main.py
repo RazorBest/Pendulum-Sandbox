@@ -10,6 +10,7 @@ import wx.lib.agw.pycollapsiblepane as wxcp
 import wx.lib.newevent
 import wx.lib.scrolledpanel as wxsp
 import explorer
+import widgets
 from pendulum import Pendulum
 from math import sqrt, atan2
 
@@ -73,10 +74,14 @@ class SimulationWindow(BufferedWindow):
         self.pendulumHandler = PendulumHandler()
         self.pendulumCreator = PendulumCreator(self.pendulumHandler)
         
-        explorerPanel = explorer.UserResizableWindow(self, self.pendulumHandler, size=(150, 0), style=wx.BORDER_SIMPLE)
+        explorerPanel = explorer.UserResizableWindow(self, self.pendulumHandler, size=(190, 0), style=wx.BORDER_SIMPLE)
+
+        frictionGlider = widgets.FrictionGlider(self, eventHandler=self.pendulumHandler, size=(100, 50))
 
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
+        windowSizer.Add(1, 0, 1)
+        windowSizer.Add(frictionGlider, 0)
         self.SetSizer(windowSizer)
 
         self.pendulumHandler.SetPendulumEventHandler(explorerPanel.GetChildren()[0])
@@ -532,6 +537,7 @@ class PendulumHandler(wx.EvtHandler):
 
         self.Bind(explorer.EVT_PENDULUM_CREATION_START, self.OnPendulumCreation)
         self.Bind(explorer.EVT_BOB_CREATION_START, self.OnBobCreation)
+        self.Bind(widgets.EVT_FRICTION_UPDATE, self.OnFrictionUpdate)
 
     def OnPendulumCreation(self, e):
         pendulumId = self.simulationWindow.AddPendulum()
@@ -541,6 +547,9 @@ class PendulumHandler(wx.EvtHandler):
             e.values = {}
         self.CompleteValueDict(e.values)
         bobId = self.AddBob(pendulumId=e.pendulumId, valueDict=e.values)
+    
+    def OnFrictionUpdate(self, e):
+        Pendulum.frictionCoefficient = e.value
 
     def CompleteValueDict(self, valueDict):
         for variable, value in self.defaultVariableList.iteritems():

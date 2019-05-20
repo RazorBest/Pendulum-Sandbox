@@ -480,7 +480,7 @@ class UserResizableWindow(wx.Window):
         self.spacerSize = 10
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        explorer = Explorer(self, pendulumHandler, size=(180, 0))
+        explorer = Explorer(self, pendulumHandler, size=(self.GetSize().GetWidth(), 0))
         self.SetBackgroundColour(wx.Colour(180, 180, 180))
         sizer.Add(explorer, 1, wx.EXPAND)
         sizer.AddSpacer(self.spacerSize)
