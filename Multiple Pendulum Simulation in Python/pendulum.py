@@ -7,7 +7,7 @@ import time
 
 class PendulumBase():
 
-    frictionCoefficient = 0.3
+    frictionCoefficient = 0
 
     def __init__(self, x, y, timeInterval):
         self.x = x
