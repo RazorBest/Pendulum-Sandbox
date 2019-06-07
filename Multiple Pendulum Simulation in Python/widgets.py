@@ -1,6 +1,7 @@
 import wx
 import wx.lib.newevent
-from main import BufferedWindow
+from buffered import BufferedWindow
+import random
 
 FrictionUpdateEvent, EVT_FRICTION_UPDATE = wx.lib.newevent.NewEvent()
 
@@ -12,59 +13,90 @@ class EnergyDisplay(BufferedWindow):
 
         self.minVal = 0
         self.maxVal = 10
+        self.markerCount = 5
         
-        self.gridWidth = 10
+        self.scale = 50
 
-        self.x = 10
+        self.originX = 50
+        self.originY = 30
 
-        self.x_data = [0]
-        self.y_data = [0]
-        #xy_data = list(zip(self.x_data, self.y_data))
+        self.data = [0]
+        self.dataIterator = 1
 
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
-        self.timer.Start(1000) #calls OnTimer() every second
+        self.timer.Start(4000) #calls OnTimer() every second
 
-        #self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.Bind(wx.EVT_SIZE, self.OnSize)
+
+        random.seed()
+        self.clear = True
 
     def OnTimer(self, e):
-        self.x_data.append(self.x * 30)
-        
-        self.y_data.append((self.x * 17) % 10)
-        if (len(self.x_data) > 10):
-            self.x_data.pop(0)
-            self.y_data.pop(0)
-        self.x += 1
+        self.AddValue(random.randint(0, 30))
 
-        xy_data = list(zip(self.x_data, self.y_data))
-
-        self.UpdateDrawing() #Should I use BufferedWindow?
+        self.UpdateDrawing()
     
+    def DrawMarkers(self, dc):
+        width, height = self.GetSize()
+
+        y = self.originY
+        unit = (height - self.originY) * 1. / self.markerCount
+
+        dc.DrawRectangle(0, 0, width, 10)
+        dc.DrawLine(self.originX, height, self.originX, 0)
+
+        while y < height:
+            value = (y - self.originY) * 1. / (height - self.originY) * (self.maxVal - self.minVal) + self.minVal
+            dc.DrawText("%.1f" % (value) + " J", 0, height - y)
+            dc.DrawLine(self.originX - 10, height - y, self.originX + 10, height - y)
+            y += unit
+
     def Draw(self, dc):
         dc.SetPen(wx.Pen(wx.Colour(wx.BLACK)))
         dc.SetBrush(wx.Brush(wx.Colour(wx.BLACK)))
-        dc.SetBackground(wx.Brush(wx.Colour(wx.WHITE)))
+        
+        if self.clear:
+            dc.SetBackground(wx.Brush(wx.Colour(wx.WHITE)))
+            dc.Clear()
+            #redraws all the lines between the points
+            self.dataIterator = 1
+            self.clear = False
 
-        dc.Clear()
+            self.DrawMarkers(dc)
+
+        i = self.dataIterator
 
         width, height = self.GetSize()
 
-        firstX = self.x_data[0]
-        firstY = self.y_data[0]
-        lastX = firstX
-        lastY = firstY
-        for i in range(1, len(self.x_data)):
-            y = self.y_data[i] - firstY
-            x = i * width / self.gridWidth
-            dc.DrawLine(lastX, lastY, x, y)
+        interval = self.maxVal - self.minVal
+        lastY = self.data[i - 1] * 1. / interval * (height - self.originY) + self.originY
+        lastX = (i - 1) * self.scale + self.originX
+        
+        while i < len(self.data):
+            y = self.data[i] * 1. / interval * (height - self.originY) + self.originY
+            x = i * self.scale + self.originX
+            dc.DrawLine(lastX, height - lastY, x, height - y)
             lastX = x
             lastY = y
+            i += 1
+
+        self.dataIterator = i
 
     def OnSize(self, e):
-        pass
+        self.clear = True
+        e.Skip()
 
     def AddValue(self, value):
-        self.values.append(value)
+        print value
+
+        self.data.append(value)
+        if (value + 20 > self.maxVal):
+            self.maxVal = value + 20
+            self.clear = True
+        if value < self.minVal:
+            self.minVal = value
+            self.clear = True
 
     def SetMinVal(self, minVal):
         self.minVal = minVal

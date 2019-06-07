@@ -41,7 +41,12 @@ class PendulumBase():
         self.lcv = zeros(n, dtype=float64)
         self.lsv = zeros(n, dtype=float64)
 
-    def InsertBob(self, bobId, pos, mass=10, length=100, angle=0, velocity=0):
+    def InsertBob(self, bobId, pos=-1, mass=10, length=100, angle=0, velocity=0):
+        #Here I should raise an exception if the bobId is already used
+        
+        if pos == -1:
+            pos = self.bobCount
+        
         self.bobCount += 1
         self.idList.insert(pos, bobId)
 
@@ -136,6 +141,13 @@ class PendulumBase():
 
     def SetY(self, y):
         self.y = y
+
+    def GetVariableObjects(self):
+        return {
+            "angles": self.angles, 
+            "velocities": self.vels,
+            "masses": self.m,
+            "lengths": self.l}
 
 class Pendulum(PendulumBase):
     radius = 13
