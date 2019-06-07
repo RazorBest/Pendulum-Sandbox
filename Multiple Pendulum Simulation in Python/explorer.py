@@ -365,8 +365,11 @@ class Explorer(wx.ScrolledCanvas):
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
+        #Creates the button object
         self.button = wx.Button(self, label='+Add Pendulum')
+        #Styles the button
         self.button.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        #Adds the button to the sizer so it can be positioned
         self.sizer.Add(self.button)
 
         self.sizer.Prepend(0, 4, 0)
@@ -424,7 +427,7 @@ class Explorer(wx.ScrolledCanvas):
         #    pane.AddBob() #Should send an event to pendulumHandler
 
         pane.Expand()
-        pane.SetMaxSize(wx.Size(500, 500))
+        pane.SetMaxSize(wx.Size(500, -1))
         
         closeButton = prepareButton(self, wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), 'x', 17, 17)
 
