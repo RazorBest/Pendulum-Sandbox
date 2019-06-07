@@ -384,6 +384,7 @@ class Explorer(wx.ScrolledCanvas):
 
         self.pendulumHandler = pendulumHandler
 
+        self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_BUTTON, self.OnButton, self.button)
         self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self.OnCaptureLost)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow)
@@ -448,6 +449,9 @@ class Explorer(wx.ScrolledCanvas):
 
         return pendulumId
 
+    def OnSize(self, e):
+        self.Refresh()
+
     def OnRemovePendulumButton(self, e):
         pane = self.pendulumCloseButtonDict[e.GetId()]["pane"]
         sizer = self.pendulumCloseButtonDict[e.GetId()]["sizer"]
@@ -511,7 +515,7 @@ class UserResizableWindow(wx.Window):
     def OnMousePress(self, e):
         self.sizing = True
         self.CaptureMouse()
-
+        
     def OnMouseRelease(self, e):
         self.sizing = False
         self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
