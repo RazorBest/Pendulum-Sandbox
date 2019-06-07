@@ -511,6 +511,7 @@ class UserResizableWindow(wx.Window):
 
     def OnMouseRelease(self, e):
         self.sizing = False
+        self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
         self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
         self.GetParent().Layout()
         if self.HasCapture():
