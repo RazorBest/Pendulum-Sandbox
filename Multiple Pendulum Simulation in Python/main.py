@@ -11,6 +11,7 @@ import wx.lib.newevent
 import wx.lib.scrolledpanel as wxsp
 import explorer
 import widgets
+import extensions
 from pendulum import Pendulum
 from math import sqrt, atan2
 
@@ -78,11 +79,16 @@ class SimulationWindow(BufferedWindow):
 
         frictionGlider = widgets.FrictionGlider(self, eventHandler=self.pendulumHandler, size=(100, 50))
 
+        self.energyDisplay = widgets.EnergyDisplay(self, 2 * self.ticksPerSecond, size=wx.Size(450, 200), style=wx.BORDER_SIMPLE)
+
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
         windowSizer.Add(1, 0, 1)
+        #windowSizer.Add(self.energyDisplay)
         windowSizer.Add(frictionGlider, 0)
         self.SetSizer(windowSizer)
+
+        self.energyDisplay.SetPosition((300, 300))
 
         self.pendulumHandler.SetPendulumEventHandler(explorerPanel.GetChildren()[0])
 
@@ -152,12 +158,19 @@ class SimulationWindow(BufferedWindow):
 
     def Tick(self):
         self.pendulumHandler.Tick()
+        self.energyDisplay.Tick()
 
     def OnTimer(self, e):
         self.UpdateDrawing()
 
     def Draw(self, dc):
         dc.Clear()
+
+        dc.SetTextForeground(wx.RED)
+        dc.SetFont(wx.Font(15, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        dc.DrawText("P: " + str(int(self.pendulumHandler.potential)), 200, 50)
+        dc.DrawText("K: " + str(int(self.pendulumHandler.kinetic)), 200, 100)
+        dc.DrawText("T: " + str(int(self.pendulumHandler.kinetic + self.pendulumHandler.potential)), 200, 150)
 
         dc.SetDeviceOrigin(self.originX, self.originY)
 
@@ -221,7 +234,7 @@ class SimulationWindow(BufferedWindow):
             self.FinishCreation()
 
     def OnMouseMove(self, e):
-        x, y = e.GetX(), e.GetY()
+        x, y = e.x, e.y
 
         dx = x - self.lastMouseX
         dy = y - self.lastMouseY
@@ -252,7 +265,7 @@ class SimulationWindow(BufferedWindow):
             return
 
     def OnLeftDown(self, e):
-        x, y = self.TranslateCoord(e.GetX(), e.GetY())
+        x, y = self.TranslateCoord(e.x, e.y)
 
         # If the cursor is in the moving state, 
         #   meaning the user can only move through the working space and he can't create pendulums or interact with them
@@ -303,6 +316,9 @@ class SimulationWindow(BufferedWindow):
 
     def GetPendulumHandler(self):
         return self.pendulumHandler
+
+    def SetExtension(self, extension):
+        self.energyDisplay.extension = extension
 
     def AddPendulum(self, x=300, y=200):
         x, y = self.TranslateCoord(x, y)
@@ -523,6 +539,7 @@ class PendulumHandler(wx.EvtHandler):
         wx.EvtHandler.__init__(self)
 
         self.pendulumDict = {}
+        self.extensionDict = {}
         self.futurePendulumDict = {}
         self.futureBobDict = {}
         self.variableList = {}
@@ -538,6 +555,9 @@ class PendulumHandler(wx.EvtHandler):
         self.Bind(explorer.EVT_PENDULUM_CREATION_START, self.OnPendulumCreation)
         self.Bind(explorer.EVT_BOB_CREATION_START, self.OnBobCreation)
         self.Bind(widgets.EVT_FRICTION_UPDATE, self.OnFrictionUpdate)
+
+        self.potential = 0
+        self.kinetic = 0
 
     def OnPendulumCreation(self, e):
         pendulumId = self.simulationWindow.AddPendulum()
@@ -560,10 +580,15 @@ class PendulumHandler(wx.EvtHandler):
         if timeInterval == None:
             timeInterval = self.timeInterval
         self.pendulumId += 1
+        pendulum = Pendulum(x, y, timeInterval)
+        self.ee = extensions.EnergyExtension(pendulum)
+        self.simulationWindow.SetExtension(self.ee)
         if not self.simulationWindow.IsStarted():
-            self.pendulumDict[self.pendulumId] = Pendulum(x, y, timeInterval)
+            self.pendulumDict[self.pendulumId] = pendulum
+            ee = extensions.EnergyExtension(pendulum)
+            self.extensionDict[self.pendulumId] = ee
         else:
-            self.futurePendulumDict[self.pendulumId] = Pendulum(x, y, timeInterval)
+            self.futurePendulumDict[self.pendulumId] = pendulum
         self.variableList[self.pendulumId] = dict()
 
         #Send the event to the Explorer
@@ -724,6 +749,8 @@ class PendulumHandler(wx.EvtHandler):
     def Tick(self):
         for pendulum in self.pendulumDict.values():
             pendulum.Tick()
+            self.potential = self.ee.GetPotentialEnergy()
+            self.kinetic = self.ee.GetKineticEnergy()
 
     def Draw(self, dc):
         for pendulum in self.pendulumDict.values():

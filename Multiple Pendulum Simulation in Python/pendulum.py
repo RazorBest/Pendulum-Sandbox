@@ -109,6 +109,7 @@ class PendulumBase():
 
             self.B[2 * i] = - self.lsv[i] + frictionX
             self.B[2 * i + 1] = self.lcv[i] + frictionY
+
             if i > 0:
                 self.B[2 * i] += self.B[2 * i - 2]
                 self.B[2 * i + 1] += self.B[2 * i - 1]
@@ -147,7 +148,8 @@ class PendulumBase():
             "angles": self.angles, 
             "velocities": self.vels,
             "masses": self.m,
-            "lengths": self.l}
+            "lengths": self.l,
+            "g": self.g}
 
 class Pendulum(PendulumBase):
     radius = 13
@@ -168,11 +170,8 @@ class Pendulum(PendulumBase):
         x = self.x
         y = self.y
         for i in range(index):
-            nx = x + sin(self.angles[i]) * self.l[i] * self.scale
-            ny = y + cos(self.angles[i]) * self.l[i] * self.scale
-            x = nx
-            y = ny
-
+            x += sin(self.angles[i]) * self.l[i] * self.scale
+            y += cos(self.angles[i]) * self.l[i] * self.scale
         return (x, y)
 
     def PendulumCollision(self, mx, my):
