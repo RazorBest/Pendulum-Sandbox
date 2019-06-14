@@ -74,10 +74,14 @@ class UserResizableWindow(wx.Window):
     RIGHT_POSITION = 4
     LEFT_POSITION = 8
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, topSpace=0, rightSpace=0, bottomSpace=0, leftSpace=0, **kwargs):
         wx.Window.__init__(self, parent, **kwargs)
 
-        self.resizableBarSpace = 15
+        self.resizableBarSpace = 35
+        self.topSpace = topSpace
+        self.rightSpace = rightSpace
+        self.bottomSpace = bottomSpace
+        self.leftSpace = leftSpace
 
         self.sizing = False
         self.positionCode = self.INVALID_POSITION
@@ -161,14 +165,14 @@ class UserResizableWindow(wx.Window):
 
 
     def OnMousePress(self, e):
-        if self.positionCode != self.INVALID_POSITION:
+        if self.positionCode != self.INVALID_POSITION and not self.HasCapture():
             self.sizing = True
             self.CaptureMouse()
         
     def OnMouseRelease(self, e):
         self.sizing = False
         self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
-        #self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
+        self.GetContainingSizer().SetItemMinSize(self, self.GetRect().width, self.GetRect().height)
         self.GetParent().Layout()
         if self.HasCapture():
             self.ReleaseMouse()
