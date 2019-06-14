@@ -79,13 +79,21 @@ class SimulationWindow(BufferedWindow):
 
         frictionGlider = widgets.FrictionGlider(self, eventHandler=self.pendulumHandler, size=(100, 50))
 
-        self.energyDisplay = widgets.EnergyDisplay(self, 2 * self.ticksPerSecond, size=wx.Size(450, 200), style=wx.BORDER_SIMPLE)
+        self.energyDisplay = widgets.EnergyDisplay(self, 2 * self.ticksPerSecond, size=wx.Size(0, 200), style=wx.BORDER_SIMPLE)
+
+        frictionGliderSizer = wx.BoxSizer(wx.HORIZONTAL)
+        #Add a very high proportion compared to the frictionGlider so it will aligned to the right
+        frictionGliderSizer.AddStretchSpacer(100)
+        frictionGliderSizer.Add(frictionGlider, 1, flag=wx.ALIGN_RIGHT)
+
+        widgetSizer = wx.BoxSizer(wx.VERTICAL)
+        widgetSizer.Add(frictionGliderSizer, 1)
+        widgetSizer.AddStretchSpacer(10000)
+        widgetSizer.Add(self.energyDisplay, 1, wx.EXPAND)
 
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
-        windowSizer.Add(1, 0, 1)
-        #windowSizer.Add(self.energyDisplay)
-        windowSizer.Add(frictionGlider, 0)
+        windowSizer.Add(widgetSizer)
         self.SetSizer(windowSizer)
 
         self.energyDisplay.SetPosition((300, 300))
