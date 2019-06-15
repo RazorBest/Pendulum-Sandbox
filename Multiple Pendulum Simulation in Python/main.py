@@ -79,21 +79,22 @@ class SimulationWindow(BufferedWindow):
 
         frictionGlider = widgets.FrictionGlider(self, eventHandler=self.pendulumHandler, size=(100, 50))
 
-        self.energyDisplay = widgets.EnergyDisplay(self, 2 * self.ticksPerSecond, size=wx.Size(0, 200), style=wx.BORDER_SIMPLE)
+        self.energyDisplay = widgets.EnergyDisplay(self, 2 * self.ticksPerSecond, size=(0, 200), style=wx.BORDER_SIMPLE)
 
         frictionGliderSizer = wx.BoxSizer(wx.HORIZONTAL)
         #Add a very high proportion compared to the frictionGlider so it will aligned to the right
-        frictionGliderSizer.AddStretchSpacer(100)
+        frictionGliderSizer.AddStretchSpacer(10000)
         frictionGliderSizer.Add(frictionGlider, 1, flag=wx.ALIGN_RIGHT)
 
         widgetSizer = wx.BoxSizer(wx.VERTICAL)
         widgetSizer.Add(frictionGliderSizer, 1)
         widgetSizer.AddStretchSpacer(10000)
-        widgetSizer.Add(self.energyDisplay, 1, wx.EXPAND)
+        widgetSizer.Add(self.energyDisplay, 1, wx.EXPAND|wx.ALIGN_BOTTOM)
 
         windowSizer = wx.BoxSizer(wx.HORIZONTAL)
         windowSizer.Add(explorerPanel, 0, wx.EXPAND)
         windowSizer.Add(widgetSizer)
+        windowSizer.Layout()
         self.SetSizer(windowSizer)
 
         self.energyDisplay.SetPosition((300, 300))
@@ -174,11 +175,11 @@ class SimulationWindow(BufferedWindow):
     def Draw(self, dc):
         dc.Clear()
 
-        dc.SetTextForeground(wx.RED)
-        dc.SetFont(wx.Font(15, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        dc.DrawText("P: " + str(int(self.pendulumHandler.potential)), 200, 50)
-        dc.DrawText("K: " + str(int(self.pendulumHandler.kinetic)), 200, 100)
-        dc.DrawText("T: " + str(int(self.pendulumHandler.kinetic + self.pendulumHandler.potential)), 200, 150)
+        #dc.SetTextForeground(wx.RED)
+        #dc.SetFont(wx.Font(15, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        #dc.DrawText("P: " + str(int(self.pendulumHandler.potential)), 200, 50)
+        #dc.DrawText("K: " + str(int(self.pendulumHandler.kinetic)), 200, 100)
+        #dc.DrawText("T: " + str(int(self.pendulumHandler.kinetic + self.pendulumHandler.potential)), 200, 150)
 
         dc.SetDeviceOrigin(self.originX, self.originY)
 
@@ -564,8 +565,8 @@ class PendulumHandler(wx.EvtHandler):
         self.Bind(explorer.EVT_BOB_CREATION_START, self.OnBobCreation)
         self.Bind(widgets.EVT_FRICTION_UPDATE, self.OnFrictionUpdate)
 
-        self.potential = 0
-        self.kinetic = 0
+        #self.potential = 0
+        #self.kinetic = 0
 
     def OnPendulumCreation(self, e):
         pendulumId = self.simulationWindow.AddPendulum()
@@ -757,8 +758,8 @@ class PendulumHandler(wx.EvtHandler):
     def Tick(self):
         for pendulum in self.pendulumDict.values():
             pendulum.Tick()
-            self.potential = self.ee.GetPotentialEnergy()
-            self.kinetic = self.ee.GetKineticEnergy()
+            #self.potential = self.ee.GetPotentialEnergy()
+            #self.kinetic = self.ee.GetKineticEnergy()
 
     def Draw(self, dc):
         for pendulum in self.pendulumDict.values():

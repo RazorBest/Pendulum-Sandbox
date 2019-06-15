@@ -3,6 +3,23 @@ import wx.lib.newevent
 
 FrictionUpdateEvent, EVT_FRICTION_UPDATE = wx.lib.newevent.NewEvent()
 
+def SkipMouseEvents(window):
+    window.Bind(wx.EVT_MOTION, OnSkipMouseEvent)
+    window.Bind(wx.EVT_LEFT_DOWN, OnSkipMouseEvent)
+    window.Bind(wx.EVT_LEFT_UP, OnSkipMouseEvent)
+    window.Bind(wx.EVT_ENTER_WINDOW, OnSkipMouseEvent)
+    window.Bind(wx.EVT_LEAVE_WINDOW, OnSkipMouseEvent)
+    window.Bind(wx.EVT_MOUSE_CAPTURE_LOST, OnSkipMouseEvent)
+    window.Bind(wx.EVT_MOUSE_EVENTS, OnSkipMouseEvent)
+
+    for child in window.GetChildren():
+        SkipMouseEvents(child)
+
+def OnSkipMouseEvent(e):
+    parent = e.GetEventObject().GetParent()
+    e.Position = parent.ScreenToClient(e.GetEventObject().ClientToScreen(e.Position))
+    wx.PostEvent(parent, e)
+
 class LiveObject():
     """This class handles an object that can be updated repeatedly within a given time interval"""
     def __init__(self, ticksPerUpdate):
@@ -74,7 +91,11 @@ class UserResizableWindow(wx.Window):
     RIGHT_POSITION = 4
     LEFT_POSITION = 8
 
-    def __init__(self, parent, topSpace=0, rightSpace=0, bottomSpace=0, leftSpace=0, **kwargs):
+    def __init__(
+            self, parent, 
+            topSpace=10, rightSpace=10, bottomSpace=10, leftSpace=10, 
+            minWidth=10, minHeight=10, maxWidth=10, maxHeight=10,
+            **kwargs):
         wx.Window.__init__(self, parent, **kwargs)
 
         self.resizableBarSpace = 35
@@ -82,6 +103,11 @@ class UserResizableWindow(wx.Window):
         self.rightSpace = rightSpace
         self.bottomSpace = bottomSpace
         self.leftSpace = leftSpace
+
+        self.minWidth = minWidth
+        self.minHeight = minHeight
+        self.maxWidth = maxWidth
+        self.maxHeight = maxHeight
 
         self.sizing = False
         self.positionCode = self.INVALID_POSITION
@@ -110,13 +136,13 @@ class UserResizableWindow(wx.Window):
     def GetCursorPositionCode(self, mx, my):
         width, height = self.GetSize()
         positionCode = 0
-        if mx <= self.resizableBarSpace:
+        if mx <= self.leftSpace:
             positionCode |= self.LEFT_POSITION
-        elif mx >= width - self.resizableBarSpace:
+        elif mx >= width - self.rightSpace:
             positionCode |= self.RIGHT_POSITION
-        if my <= self.resizableBarSpace:
+        if my <= self.topSpace:
             positionCode |= self.TOP_POSITION
-        elif my >= height - self.resizableBarSpace:
+        elif my >= height - self.bottomSpace:
             positionCode |= self.BOTTOM_POSITION
 
         return positionCode
@@ -131,14 +157,14 @@ class UserResizableWindow(wx.Window):
                 x, y = e.x, e.y
                 width, height = self.GetSize()
 
-                if x > 2 * self.resizableBarSpace:
+                if x >= self.minWidth:
                     self.SetSize(x, height)
 
             if self.positionCode & self.BOTTOM_POSITION:
                 x, y = e.x, e.y
                 width, height = self.GetSize()
 
-                if y > 2 * self.resizableBarSpace:
+                if y >= self.minHeight:
                     self.SetSize(width, y)
 
             if self.positionCode & self.LEFT_POSITION:
@@ -148,7 +174,7 @@ class UserResizableWindow(wx.Window):
                 width, height = self.GetSize()
                 posX, posY = self.GetPosition()
 
-                if e.x < width - 2 * self.resizableBarSpace:
+                if e.x <= width - self.minWidth:
                     self.SetPosition((x, posY))
                     self.SetSize(width + posX - x, height)
 
@@ -159,10 +185,9 @@ class UserResizableWindow(wx.Window):
                 width, height = self.GetSize()
                 posX, posY = self.GetPosition()
 
-                if e.y < height - 2 * self.resizableBarSpace:
+                if e.y <= height - self.minHeight:
                     self.SetPosition((posX, y))
                     self.SetSize(width, height + posY - y)
-
 
     def OnMousePress(self, e):
         if self.positionCode != self.INVALID_POSITION and not self.HasCapture():
@@ -190,17 +215,16 @@ class UserResizableWindow(wx.Window):
         if self.HasCapture():
             self.ReleaseMouse()
 
-class EnergyDisplay(LiveObject, UserResizableWindow):
+class EnergyDisplayScreen(wx.Window, LiveObject):
     def __init__(self, parent, ticksPerUpdate=1, scale=10, extension=None, **kwargs):
-        #wx.Window.__init__(self, parent, **kwargs)
+        wx.Window.__init__(self, parent, **kwargs)
         LiveObject.__init__(self, ticksPerUpdate)
-        UserResizableWindow.__init__(self, parent, **kwargs)
 
         self._extension = extension
         self.scale = scale
 
-        self.minVal = 0
-        self.maxVal = 10
+        self._minVal = 0
+        self._maxVal = 10
         self.markerCount = 5
 
         self.originX = 50
@@ -244,11 +268,11 @@ class EnergyDisplay(LiveObject, UserResizableWindow):
         y = self.originY
         unit = (height - self.originY) * 1. / self.markerCount
 
-        dc.DrawRectangle(0, 0, width, 10)
+        #dc.DrawRectangle(0, 0, width, 10)
         dc.DrawLine(self.originX, height, self.originX, 0)
 
         while y < height:
-            value = (y - self.originY) * 1. / (height - self.originY) * (self.maxVal - self.minVal) + self.minVal
+            value = (y - self.originY) * 1. / (height - self.originY) * (self._maxVal - self._minVal) + self._minVal
             dc.DrawText("%.1f" % (value) + " J", 0, height - y)
             dc.DrawLine(self.originX - 10, height - y, self.originX + 10, height - y)
             y += unit
@@ -267,7 +291,7 @@ class EnergyDisplay(LiveObject, UserResizableWindow):
             self.DrawMarkers(dc)
 
         width, height = self.GetSize()
-        interval = self.maxVal - self.minVal
+        interval = self._maxVal - self._minVal
 
         i = None
         for data in self.data.values():
@@ -305,11 +329,11 @@ class EnergyDisplay(LiveObject, UserResizableWindow):
 
     def AddValue(self, key, value):
         self.data[key].values.append(value)
-        if (value + 20 > self.maxVal):
-            self.maxVal = value + 20
+        if (value + 20 > self._maxVal):
+            self._maxVal = value + 20
             self.clear = True
-        if value < self.minVal:
-            self.minVal = value
+        if value < self._minVal:
+            self._minVal = value
             self.clear = True
     
     @property
@@ -320,11 +344,76 @@ class EnergyDisplay(LiveObject, UserResizableWindow):
     def extension(self, extension):
         self._extension = extension
 
-    def SetMinVal(self, minVal):
-        self.minVal = minVal
+    @property
+    def minVal(self):
+        return self._minVal
 
-    def SetMaxVal(self, maxVal):
-        self.maxVal = maxVal
+    @minVal.setter
+    def minVal(self, minVal):
+        self._minVal = minVal
+
+    @property
+    def maxVal(self):
+        return self._maxVal
+
+    @maxVal.setter
+    def maxVal(self, maxVal):
+        self._maxVal = maxVal
+
+class EnergyDisplay(UserResizableWindow):
+    def __init__(self, parent, ticksPerUpdate=1, scale=10, extension=None, **kwargs):
+        UserResizableWindow.__init__(self, parent, 15, -1, -1, -1, 20, 20, **kwargs)
+        
+        self.screen = EnergyDisplayScreen(self, ticksPerUpdate, scale, extension, style=wx.STATIC_BORDER)
+        
+        self.topBar = wx.Window(self, size=(0, 20))
+        self.topBar.SetBackgroundColour(wx.Colour(90, 90, 100))
+
+        SkipMouseEvents(self.screen)
+        SkipMouseEvents(self.topBar)
+
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.topBar, flag=wx.EXPAND)
+        self.sizer.AddSpacer(5)
+        self.sizer.Add(self.screen, 1, wx.EXPAND)
+        self.sizer.Layout()
+        self.SetSizer(self.sizer)
+
+        self.Bind(wx.EVT_SIZE, self.OnSize)
+
+    def OnSize(self, e):
+        self.Refresh()
+        e.Skip()
+
+    def Tick(self):
+        self.screen.Tick()
+
+    def Draw(self, dc):
+        self.screen.Draw(dc)
+
+    @property
+    def extension(self):
+        return self.screen.extension
+
+    @extension.setter
+    def extension(self, extension):
+        self.screen.extension = extension
+
+    @property
+    def minVal(self):
+        return self.screen.minVal
+
+    @minVal.setter
+    def minVal(self, minVal):
+        self.screen.minVal = minVal
+
+    @property
+    def maxVal(self):
+        return self.screen.maxVal
+
+    @maxVal.setter
+    def maxVal(self, maxVal):
+        self.screen.maxVal = maxVal
 
 class FrictionGlider(wx.Window):
     def __init__(self, parent, eventHandler=None, **kwargs):
