@@ -1,5 +1,6 @@
 import wx
 import wx.lib.newevent
+from wx.adv import PseudoDC
 
 FrictionUpdateEvent, EVT_FRICTION_UPDATE = wx.lib.newevent.NewEvent()
 
@@ -281,7 +282,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         dc.SetPen(wx.Pen(wx.Colour(wx.BLACK)))
         dc.SetBrush(wx.Brush(wx.Colour(wx.BLACK)))
         
-        if self.clear:
+        if True:
             dc.SetBackground(wx.Brush(wx.Colour(wx.WHITE)))
             dc.Clear()
             #redraws all the lines between the points
@@ -293,7 +294,36 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         width, height = self.GetSize()
         interval = self._maxVal - self._minVal
 
-        i = None
+        newMaxVal = None # A very big value
+        newMinVal = None # A very small value 
+
+        for data in self.data.values():
+            values = data.values
+
+            points = []
+            for i in range(len(values)):
+                x = i * self.scale + self.originX
+                y = height - values[i] * 1. / interval * (height - self.originY) - self.originY
+                points.append(wx.Point(x, y))
+
+                if newMaxVal == None:
+                    newMaxVal = values[i]
+                if newMinVal == None:
+                    newMinVal = values[i]
+                newMaxVal = max(values[i], newMaxVal)
+                newMinVal = min(values[i], newMinVal)
+            
+            if newMaxVal != None:
+                self.maxVal = newMaxVal
+            if newMinVal != None:
+                self.minVal = newMinVal
+
+            if len(values) > 2:
+                dc.SetBrush(wx.Brush(data.color))
+                dc.SetPen(wx.Pen(data.color))
+                dc.DrawSpline(points)
+
+        """i = None
         for data in self.data.values():
             
             values = data.values
@@ -313,7 +343,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
                 lastY = y
                 i += 1
 
-        self.dataIterator = i
+        self.dataIterator = i"""
 
     def OnPaint(self, e):
         self.clear = True
