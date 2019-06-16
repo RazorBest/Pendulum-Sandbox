@@ -1,6 +1,7 @@
 import wx
 import wx.lib.newevent
 from wx.adv import PseudoDC
+from buffered import BufferedWindow
 
 FrictionUpdateEvent, EVT_FRICTION_UPDATE = wx.lib.newevent.NewEvent()
 
@@ -227,9 +228,14 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         self._minVal = 0
         self._maxVal = 10
         self.markerCount = 5
+        self.markerLength = 20
+        self.minLimit = 10
 
+        self.timeAxisY = 20
+
+        self.topSpace = 15
         self.originX = 50
-        self.originY = 30
+        self.originY = self.timeAxisY + 10
 
         self.data = {"potential":GraphableData([0], wx.Colour(wx.BLUE)), 
                     "kinetic":GraphableData([0], wx.Colour(wx.RED)), 
@@ -243,8 +249,8 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         self.clear = True
 
     def UpdateData(self):
-        potential = self._extension.GetPotentialEnergy()
-        kinetic = self._extension.GetKineticEnergy()
+        potential = self.extension.GetPotentialEnergy()
+        kinetic = self.extension.GetKineticEnergy()
         total = potential + kinetic
         self.AddValue('potential', potential)
         self.AddValue('kinetic', kinetic)
@@ -266,36 +272,43 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
     def DrawMarkers(self, dc):
         width, height = self.GetSize()
 
+        limit = max(self.minLimit + self.originX, height - self.topSpace)
+
         y = self.originY
-        unit = (height - self.originY) * 1. / self.markerCount
+        unit = (limit - self.originY) * 1. / self.markerCount
 
-        #dc.DrawRectangle(0, 0, width, 10)
-        dc.DrawLine(self.originX, height, self.originX, 0)
+        # Draw the y axis
+        dc.DrawLine(self.originX, height - self.timeAxisY, self.originX, 0)
 
-        while y < height:
-            value = (y - self.originY) * 1. / (height - self.originY) * (self._maxVal - self._minVal) + self._minVal
-            dc.DrawText("%.1f" % (value) + " J", 0, height - y)
-            dc.DrawLine(self.originX - 10, height - y, self.originX + 10, height - y)
+        # Draw the markers on the y axis
+        while y <= limit:
+            value = (y - self.originY) * 1. / (limit - self.originY) * (self.maxVal - self.minVal) + self.minVal
+            
+            text = "%.1f" % (value) + " J"
+            textWidth, textHeight = dc.GetTextExtent(text)
+            dc.DrawText(text, self.originX - self.markerLength / 2 - textWidth - 4, height - y - textHeight / 2)
+            dc.DrawLine(self.originX - self.markerLength / 2, height - y, self.originX + self.markerLength / 2, height - y)
             y += unit
+
+        #Draw the x axis
+        dc.DrawLine(0, height - self.timeAxisY, width, height - self.timeAxisY)
+        
 
     def Draw(self, dc):
         dc.SetPen(wx.Pen(wx.Colour(wx.BLACK)))
         dc.SetBrush(wx.Brush(wx.Colour(wx.BLACK)))
         
-        if True:
-            dc.SetBackground(wx.Brush(wx.Colour(wx.WHITE)))
-            dc.Clear()
-            #redraws all the lines between the points
-            self.dataIterator = 1
-            self.clear = False
-
-            self.DrawMarkers(dc)
+        dc.SetBackground(wx.Brush(wx.Colour(wx.WHITE)))
+        dc.Clear()
+        # Draws all the lines between the points
+        self.DrawMarkers(dc)
 
         width, height = self.GetSize()
-        interval = self._maxVal - self._minVal
-
-        newMaxVal = None # A very big value
-        newMinVal = None # A very small value 
+        limit = max(self.minLimit + self.originX, height - self.topSpace)
+        interval = self.maxVal - self.minVal
+        
+        newMaxVal = None
+        newMinVal = None 
 
         for data in self.data.values():
             values = data.values
@@ -303,7 +316,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
             points = []
             for i in range(len(values)):
                 x = i * self.scale + self.originX
-                y = height - values[i] * 1. / interval * (height - self.originY) - self.originY
+                y = height - values[i] * 1. / interval * (limit - self.originY) - self.originY
                 points.append(wx.Point(x, y))
 
                 if newMaxVal == None:
@@ -312,18 +325,20 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
                     newMinVal = values[i]
                 newMaxVal = max(values[i], newMaxVal)
                 newMinVal = min(values[i], newMinVal)
-            
-            if newMaxVal != None:
-                self.maxVal = newMaxVal
-            if newMinVal != None:
-                self.minVal = newMinVal
 
             if len(values) > 2:
                 dc.SetBrush(wx.Brush(data.color))
                 dc.SetPen(wx.Pen(data.color))
                 dc.DrawSpline(points)
 
-        """i = None
+        if newMaxVal != None:
+            self.maxVal = newMaxVal
+        if newMinVal != None:
+            self.minVal = newMinVal
+
+        """
+        self.dataIterator = 1
+        i = None
         for data in self.data.values():
             
             values = data.values
@@ -359,13 +374,16 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
 
     def AddValue(self, key, value):
         self.data[key].values.append(value)
-        if (value + 20 > self._maxVal):
-            self._maxVal = value + 20
+        if (value > self.maxVal):
+            self.maxVal = value
             self.clear = True
         if value < self._minVal:
-            self._minVal = value
+            self.minVal = value
             self.clear = True
-    
+
+    def UpdateOriginX(self, dc):
+        pass
+
     @property
     def extension(self):
         return self._extension
@@ -380,7 +398,10 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
 
     @minVal.setter
     def minVal(self, minVal):
-        self._minVal = minVal
+        if self.maxVal - minVal > 10:
+            self._minVal = minVal
+        else:
+            self._minVal = self.maxVal - 10
 
     @property
     def maxVal(self):
@@ -388,7 +409,10 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
 
     @maxVal.setter
     def maxVal(self, maxVal):
-        self._maxVal = maxVal
+        if maxVal - self.minVal > 10:
+            self._maxVal = maxVal
+        else:
+            self._maxVal = self.minVal + 10
 
 class EnergyDisplay(UserResizableWindow):
     def __init__(self, parent, ticksPerUpdate=1, scale=10, extension=None, **kwargs):
