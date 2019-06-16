@@ -1,11 +1,12 @@
+import wx
 from math import sin, cos
 
 class GraphableData():
     def __init__(self, values=[], color=None, active=True):
-        self.values = values
-        self.color = color
-        self.active = active
-        self.iterator = 0
+        self.__values = values
+        self.__color = color
+        self.__active = active
+        self.__iterator = 0
 
     @property
     def values(self):
@@ -48,6 +49,11 @@ class EnergyExtension():
         self.masses = objects['masses']
         self.lengths = objects['lengths']
         self.g = objects['g']
+
+        self.data = {"potential":GraphableData([0], wx.Colour(wx.BLUE)), 
+                    "kinetic":GraphableData([0], wx.Colour(wx.RED)), 
+                    "total":GraphableData([0], wx.Colour(wx.BLACK))
+                    }
     
     def GetPotentialEnergy(self):
         energy = 0

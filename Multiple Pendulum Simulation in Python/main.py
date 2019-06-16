@@ -614,7 +614,7 @@ class PendulumHandler(wx.EvtHandler):
             self.futureBobDict[pendulumId].append(self.bobId)
         else:
             self.futurePendulumDict[pendulumId].AddBob(self.bobId)
-        self.variableList[pendulumId][self.bobId] = self.DataDict(self.defaultVariableList)
+        self.variableList[pendulumId][self.bobId] = self.CreateDataDict(self.defaultVariableList)
 
         if obj == None:
             obj = self.FindObjFromPendumulId(pendulumId)
@@ -654,7 +654,7 @@ class PendulumHandler(wx.EvtHandler):
 
         del self.variableList[pendulumId]
 
-    def DataDict(self, dct):
+    def CreateDataDict(self, dct):
         new_dict = dict()
         for key, value in dct.iteritems():
             new_dict[key] = DataHolder(value)
@@ -739,7 +739,8 @@ class PendulumHandler(wx.EvtHandler):
         for pendulum in self.pendulumDict.values():
             pendulum.SetSelected(False)
         self.pendulumDict[pendulumId].SetSelected(selected)
-
+        if selected == True:
+            self.simulationWindow.SetExtension(self.extensionDict[pendulumId])
 
     def IsSelected(self, pendulumId):
         return self.pendulumDict[pendulumId].IsSelected()

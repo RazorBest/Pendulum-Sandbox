@@ -198,11 +198,6 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         self.originX = 50
         self.originY = self.timeAxisY + 10
 
-        self.data = {"potential":GraphableData([0], wx.Colour(wx.BLUE)), 
-                    "kinetic":GraphableData([0], wx.Colour(wx.RED)), 
-                    "total":GraphableData([0], wx.Colour(wx.BLACK))
-                    }
-
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         
@@ -217,12 +212,12 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         self.AddValue('total', total)
 
         width, height = self.GetSize()
-        n = len(self.data['potential'].values)
+        n = len(self.extension.data['potential'].values)
         while self.scale * (n + 3) > width:
             self.clear = True
-            for data in self.data.values():
+            for data in self.extension.data.values():
                 data.values.pop(0)
-            n = len(self.data['potential'].values)
+            n = len(self.extension.data['potential'].values)
 
         #self.Refresh()
         #Update the paint
@@ -252,7 +247,6 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
 
         #Draw the x axis
         dc.DrawLine(0, height - self.timeAxisY, width, height - self.timeAxisY)
-        
 
     def Draw(self, dc):
         dc.SetPen(wx.Pen(wx.Colour(wx.BLACK)))
@@ -260,8 +254,11 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         
         dc.SetBackground(wx.Brush(wx.Colour(wx.WHITE)))
         dc.Clear()
-        # Draws all the lines between the points
+        # Draws the x axis, the y axis and all the markers along them
         self.DrawMarkers(dc)
+
+        if self.extension == None:
+            return
 
         width, height = self.GetSize()
         limit = max(self.minLimit + self.originX, height - self.topSpace)
@@ -270,7 +267,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         newMaxVal = None
         newMinVal = None 
 
-        for data in self.data.values():
+        for data in self.extension.data.values():
             values = data.values
 
             points = []
@@ -299,7 +296,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         """
         self.dataIterator = 1
         i = None
-        for data in self.data.values():
+        for data in self.extension.data.values():
             
             values = data.values
 
@@ -333,7 +330,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         e.Skip()
 
     def AddValue(self, key, value):
-        self.data[key].values.append(value)
+        self.extension.data[key].values.append(value)
         if (value > self.maxVal):
             self.maxVal = value
             self.clear = True
@@ -344,6 +341,22 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
     def UpdateOriginX(self, dc):
         pass
 
+    def UpdateMinMax(self):
+        newMinVal = None
+        newMaxVal = None
+        for data in self.extension.data.values():
+            values = data.values
+            for value in values:
+                if newMinVal == None:
+                    newMinVal = value
+                if newMaxVal == None:
+                    newMaxVal = value
+                newMinVal = min(newMinVal, value)
+                newMaxVal = max(newMaxVal, value)
+
+        self.maxVal = newMaxVal
+        self.minVal = newMinVal
+
     @property
     def extension(self):
         return self._extension
@@ -351,6 +364,10 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
     @extension.setter
     def extension(self, extension):
         self._extension = extension
+        self.UpdateMinMax()
+        # Repaint
+        dc = wx.ClientDC(self)
+        self.Draw(dc)
 
     @property
     def minVal(self):
