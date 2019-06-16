@@ -202,7 +202,6 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
                     "kinetic":GraphableData([0], wx.Colour(wx.RED)), 
                     "total":GraphableData([0], wx.Colour(wx.BLACK))
                     }
-        self.dataIterator = 1
 
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_PAINT, self.OnPaint)

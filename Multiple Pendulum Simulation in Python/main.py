@@ -276,13 +276,13 @@ class SimulationWindow(BufferedWindow):
             return
 
         self.hoverState = self.pendulumHandler.PendulumCollision(x, y)
+        self.dragState = self.hoverState
         pendulumId = self.hoverState.id
 
         # If the cursor is over any pendulum 
         if pendulumId != 0:
             if not self.pendulumHandler.IsSelected(pendulumId):
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
-                self.dragState = self.hoverState
                 return
 
             if self.hoverState.lastBob and not (self.state & self.STARTED_STATE):
@@ -291,7 +291,6 @@ class SimulationWindow(BufferedWindow):
                 self.dragState = CollisionState()
             else:
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
-                self.dragState = self.hoverState
         # If the cursor is not over any pendulum it means it can be created a new pendulum
         # You can't create a pendulum if the simulation has started (that's what the condition is checking)
         elif not (self.state & self.STARTED_STATE):
