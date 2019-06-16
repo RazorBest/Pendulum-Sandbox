@@ -12,7 +12,7 @@ import wx.lib.scrolledpanel as wxsp
 import explorer
 import widgets
 import extensions
-from pendulum import Pendulum
+from pendulum import Pendulum, CollisionState
 from math import sqrt, atan2
 
 class BufferedWindow(wx.Window):
@@ -79,7 +79,7 @@ class SimulationWindow(BufferedWindow):
 
         frictionGlider = widgets.FrictionGlider(self, eventHandler=self.pendulumHandler, size=(100, 50))
 
-        self.energyDisplay = widgets.EnergyDisplay(self, self.ticksPerSecond / 3, size=(0, 200), style=wx.BORDER_SIMPLE)
+        self.energyDisplay = widgets.EnergyDisplay(self, self.ticksPerSecond, size=(0, 200), style=wx.BORDER_SIMPLE)
 
         frictionGliderSizer = wx.BoxSizer(wx.HORIZONTAL)
         #Add a very high proportion compared to the frictionGlider so it will aligned to the right
@@ -118,8 +118,8 @@ class SimulationWindow(BufferedWindow):
 
         self.state = 0
 
-        self.dragPendulum = (0,)
-        self.hoverPendulum = (0,)
+        self.dragState = CollisionState()
+        self.hoverState = CollisionState()
         self.pause = True
 
         self.gridSpace = 100
@@ -187,7 +187,7 @@ class SimulationWindow(BufferedWindow):
         dc.SetUserScale(self.scale, self.scale)
 
         #Draws a light gray circle for the space in which will be the future pivot
-        if not (self.state & (self.MOVING_STATE | self.STARTED_STATE)) and self.hoverPendulum[0] == 0 and self.state & self.ENTERED_STATE:
+        if not (self.state & (self.MOVING_STATE | self.STARTED_STATE)) and self.hoverState.id == 0 and self.state & self.ENTERED_STATE:
             dc.SetPen(wx.Pen(wx.Colour(175, 175, 175)))
             dc.SetBrush(wx.Brush(wx.Colour(175, 175, 175)))
             dc.DrawCircle(self.TranslateCoord(self.lastMouseX, self.lastMouseY), 10)
@@ -245,7 +245,7 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseY = y
 
         if not e.LeftIsDown():
-            self.hoverPendulum = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
+            self.hoverState = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
             return
 
         if self.state & self.MOVING_STATE:
@@ -256,8 +256,8 @@ class SimulationWindow(BufferedWindow):
             self.grid.SetY(-self.originY)
             return
 
-        if self.dragPendulum[0] != 0:
-            pendulumId = self.dragPendulum[0]
+        if self.dragState.id != 0:
+            pendulumId = self.dragState.id
             self.pendulumHandler.MovePendulum(pendulumId, dx / self.scale, dy / self.scale)
 
         if self.state & self.STARTED_STATE:
@@ -275,37 +275,37 @@ class SimulationWindow(BufferedWindow):
         if self.state & self.MOVING_STATE:
             return
 
-        self.hoverPendulum = self.pendulumHandler.PendulumCollision(x, y)
-        pendulumId = self.hoverPendulum[0]
+        self.hoverState = self.pendulumHandler.PendulumCollision(x, y)
+        pendulumId = self.hoverState.id
 
         # If the cursor is over any pendulum 
         if pendulumId != 0:
             if not self.pendulumHandler.IsSelected(pendulumId):
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
-                self.dragPendulum = self.hoverPendulum
+                self.dragState = self.hoverState
                 return
 
-            if self.hoverPendulum[3] != 0 and not (self.state & self.STARTED_STATE):
-                self.hoverPendulum = (0,)
+            if self.hoverState.lastBob and not (self.state & self.STARTED_STATE):
+                self.hoverState = CollisionState()
                 self.StartCreation(pendulumId, x, y)
-                self.dragPendulum = (0,)
+                self.dragState = CollisionState()
             else:
                 self.pendulumHandler.SelectPendulum(pendulumId, True)
-                self.dragPendulum = self.hoverPendulum
+                self.dragState = self.hoverState
         # If the cursor is not over any pendulum it means it can be created a new pendulum
         # You can't create a pendulum if the simulation has started (that's what the condition is checking)
         elif not (self.state & self.STARTED_STATE):
             #extend a pendulum with a bob with its pivot at coorinates (x, y)
             pendulumId = self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
-            self.hoverPendulum = (0,)
-            self.dragPendulum = (0,)
+            self.hoverState = CollisionState()
+            self.dragState = CollisionState()
             self.StartCreation(pendulumId, x, y)
 
     def OnLeftUp(self, e):
         if self.state & self.CREATION_STATE:
             x, y = self.TranslateCoord(e.GetX(), e.GetY())
             self.FinishCreation()
-            self.hoverPendulum = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
+            self.hoverState = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
 
     def OnMouseWheel(self, e):
         mag = self.scale * e.GetWheelRotation() / e.GetWheelDelta() / 25.
@@ -721,11 +721,15 @@ class PendulumHandler(wx.EvtHandler):
 
     def PendulumCollision(self, mx, my):
         for pendulumId, pendulum in self.pendulumDict.items():
-            ans = pendulum.PendulumCollision(mx, my)
-            if ans.count(0) < 3:
-                return (pendulumId,) + ans
+            state = pendulum.PendulumCollision(mx, my)
+            if state.pivot or state.bobIndex or state.rod:
+                state.id = pendulumId
+                return state
+            #if ans.count(0) < 3:
+            #   return (pendulumId,) + ans
 
-        return (0,)
+        # Return the default state
+        return CollisionState()
 
     def MovePendulum(self, pendulumId, dx, dy):
         pend = self.pendulumDict[pendulumId]

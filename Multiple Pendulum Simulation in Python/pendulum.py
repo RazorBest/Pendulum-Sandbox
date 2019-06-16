@@ -151,6 +151,14 @@ class PendulumBase():
             "lengths": self.l,
             "g": self.g}
 
+class CollisionState():
+    def __init__(self, pivot=False, bobIndex=0, lastBob=False, rod=False, id=0):
+        self.pivot = pivot
+        self.bobIndex = bobIndex
+        self.lastBob = lastBob
+        self.rod = rod
+        self.id = id
+
 class Pendulum(PendulumBase):
     radius = 13
 
@@ -185,8 +193,8 @@ class Pendulum(PendulumBase):
         # Check collision for the pivot
         if self.BobCollision(mx, my, x, y, self.radius):
             if self.bobCount == 0:
-                return (1, 0, 1)
-            return (1, 0, 0)
+                return CollisionState(pivot=True, lastBob=True)
+            return CollisionState(pivot=True)
 
         for i in range(0, self.bobCount):
             nx = x + sin(self.angles[i]) * self.l[i] * self.scale
@@ -195,16 +203,17 @@ class Pendulum(PendulumBase):
             if self.BobCollision(mx, my, nx, ny, self.radius):
                 # If it is the last bob
                 if i == self.bobCount - 1:
-                    return (0, self.idList[i], 1)
-                return (0, self.idList[i], 0)
+                    return CollisionState(bobIndex=self.idList[i], lastBob=True)
+                return CollisionState(bobIndex=self.idList[i])
 
             if self.RodCollision(mx, my, x, y, nx, ny, 5):
-                return (1, 0, 0)
+                return CollisionState(rod=True)
 
             x = nx
             y = ny
 
-        return (0, 0, 0)
+        # Return default state if no collision happens
+        return CollisionState()
 
     def Distance(self, x1, y1, x2, y2):
         return sqrt((x1 - x2)**2 + (y1 - y2)**2)
