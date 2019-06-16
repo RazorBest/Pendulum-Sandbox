@@ -47,45 +47,6 @@ class LiveObject():
     def ticksPerUpdate(self, ticksPerUpdate):
         self.__ticksPerUpdate = ticksPerUpdate
 
-class GraphableData():
-    def __init__(self, values=[], color=None, active=True):
-        self.values = values
-        self.color = color
-        self.active = active
-        self.iterator = 0
-
-    @property
-    def values(self):
-        return self.__values
-
-    @values.setter
-    def values(self, values):
-        self.__values = values
-
-    @property
-    def color(self):
-        return self.__color
-
-    @color.setter
-    def color(self, color):
-        self.__color = color
-
-    @property
-    def active(self):
-        return self.__active
-
-    @active.setter
-    def active(self, active):
-        self.__active = active
-
-    @property
-    def iterator(self):
-        return self.__iterator
-
-    @iterator.setter
-    def iterator(self, iterator):
-        self.__iterator = iterator
-
 class UserResizableWindow(wx.Window):
     INVALID_POSITION = 0
     TOP_POSITION = 1
