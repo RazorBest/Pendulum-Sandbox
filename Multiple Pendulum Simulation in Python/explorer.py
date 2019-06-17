@@ -128,36 +128,47 @@ class NumberValidator(wx.Validator):
         return self.number
 
 class NumberInputCtrl(wx.TextCtrl):
-    def __init__(self, parent, pendulumHandler, **kwargs):
-        self.variableName = kwargs['variableName']
-        del kwargs['variableName']
+    def __init__(self, parent, **kwargs):
         wx.TextCtrl.__init__(self, parent, **kwargs)
 
         self.Bind(wx.EVT_TEXT, self.OnText)
-
-        pendulumId = self.GetGrandParent().GetGrandParent().pendulumId
-        bobId = self.GetGrandParent().bobId
-        self.simulationWindow = wx.FindWindowByName('simulationWindow')
-        self.pendulumHandler = pendulumHandler
-        self.pendulumHandler.LinkVariable(self, pendulumId, bobId, self.variableName)
-
-        self.OnText()
-
-        self.Bind(wx.EVT_CLOSE, self.OnClose)
 
     #This function will be called when the user inserts/changes/deletes a character
     def OnText(self, e=None):
         validator = self.GetValidator()
         if validator.Validate(self):
-            self.pendulumHandler.SetParameter(self, float(self.GetValue()))
-            if not self.simulationWindow.IsStarted():
-                self.pendulumHandler.SendParameters()
+            self.OnUpdateVariable()
+        
+    # This function will be implemented by subclasses
+    def OnUpdateVariable(self):
+        pass
 
     def SetParameter(self, value):
         """This function is required by the PendulumHandler class
                 when an the pendulum parameters are changed from an external object
         """
         self.ChangeValue(str(value))
+
+class BobVariableInputCtrl(NumberInputCtrl):
+    def __init__(self, parent, pendulumHandler, **kwargs):
+        self.variableName = kwargs['variableName']
+        del kwargs['variableName']
+        NumberInputCtrl.__init__(self, parent, **kwargs)
+
+        pendulumId = self.GetGrandParent().GetGrandParent().pendulumId
+        bobId = self.GetGrandParent().bobId
+        self.simulationWindow = wx.FindWindowByName('simulationWindow') # This should not be here
+        self.pendulumHandler = pendulumHandler
+        self.pendulumHandler.LinkVariable(self, pendulumId, bobId, self.variableName)
+
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
+        self.OnText()
+
+    #This function will be called when the user inserts/changes/deletes a character
+    def OnUpdateVariable(self, e=None):
+        self.pendulumHandler.SetParameter(self, float(self.GetValue()))
+        if not self.simulationWindow.IsStarted():   # This should not be here
+            self.pendulumHandler.SendParameters() 
 
     def OnClose(self, e):
         self.pendulumHandler.UnlinkVariable(self)
@@ -215,7 +226,7 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         validator = NumberValidator(min_val=min_val, max_val=max_val)
         #validator.SetMinMax(val_min, val_max)
         self.validators[variableName] = validator
-        t = NumberInputCtrl(
+        t = BobVariableInputCtrl(
             self.GetPane(),
             self.pendulumHandler,
             value=str(value),
@@ -261,13 +272,12 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
 
         addBobButton = wx.Button(self.GetPane(), label='Add Bob')
         self.sizer.Add(addBobButton)
+        self.sizer.Layout()
 
         self.pendulumHandler = pendulumHandler
         self.pendulumHandler.LinkPendulum(self, pendulumId)
 
         self.sizersDict = {}
-
-        self.sizer.Layout()
 
         self.Bind(wx.EVT_BUTTON, self.OnAddBobButton, addBobButton)
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)

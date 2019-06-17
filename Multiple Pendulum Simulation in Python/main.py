@@ -64,7 +64,7 @@ class SimulationWindow(BufferedWindow):
     STARTED_STATE = 32
 
     def __init__(self, *args, **kwargs):
-        self.ticksPerSecond = 500
+        self.ticksPerSecond = 1500
 
         kwargs['name'] = 'simulationWindow'
         BufferedWindow.__init__(self, *args, **kwargs)
