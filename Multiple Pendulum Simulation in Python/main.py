@@ -580,12 +580,11 @@ class PendulumHandler(wx.EvtHandler):
             timeInterval = self.timeInterval
         self.pendulumId += 1
         pendulum = Pendulum(x, y, timeInterval)
-        self.ee = extensions.EnergyExtension(pendulum)
-        self.simulationWindow.SetExtension(self.ee)
+        ee = extensions.EnergyExtension(pendulum)
+        self.extensionDict[self.pendulumId] = ee
         if not self.simulationWindow.IsStarted():
             self.pendulumDict[self.pendulumId] = pendulum
-            ee = extensions.EnergyExtension(pendulum)
-            self.extensionDict[self.pendulumId] = ee
+            self.simulationWindow.SetExtension(ee)
         else:
             self.futurePendulumDict[self.pendulumId] = pendulum
         self.variableList[self.pendulumId] = dict()
@@ -650,7 +649,7 @@ class PendulumHandler(wx.EvtHandler):
             if pendulumId in self.futureBobDict:
                 del self.futureBobDict[pendulumId]
         else:
-           del self.futurePendulumDict[pendulumId]
+            del self.futurePendulumDict[pendulumId]
 
         del self.variableList[pendulumId]
 
@@ -813,8 +812,10 @@ class MainFrame(wx.Frame):
         self.simulationWindow.Reload()
 
     def OnClose(self, e):
-        self.simulationWindow.Close(True)
-        e.Skip()
+        with wx.MessageDialog(self, "Are you sure you want to quit?", caption="Quit?", style=wx.YES_NO|wx.CANCEL|wx.CANCEL_DEFAULT|wx.ICON_QUESTION) as dialog:
+            if dialog.ShowModal() == wx.ID_YES:
+                self.simulationWindow.Close(True)
+                e.Skip()
 
 def main():
     app = wx.App(False)
