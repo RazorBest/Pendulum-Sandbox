@@ -1,11 +1,13 @@
 import wx
+import updatable
+from Queue import Queue
 from math import sin, cos
 
 class GraphableData():
-    def __init__(self, values=[], color=None, active=True):
+    def __init__(self, values=[], colour=None, visible=True):
         self.__values = values
-        self.__color = color
-        self.__active = active
+        self.__colour = colour
+        self.__visible = visible
         self.__iterator = 0
 
     @property
@@ -17,12 +19,20 @@ class GraphableData():
         self.__values = values
 
     @property
-    def color(self):
-        return self.__color
+    def colour(self):
+        return self.__colour
 
-    @color.setter
-    def color(self, color):
-        self.__color = color
+    @colour.setter
+    def colour(self, colour):
+        self.__colour = colour
+
+    @property
+    def visible(self):
+        return self.__visible
+
+    @visible.setter
+    def visible(self, visible):
+        self.__visible = visible
 
     @property
     def active(self):
@@ -40,8 +50,10 @@ class GraphableData():
     def iterator(self, iterator):
         self.__iterator = iterator
 
-class EnergyExtension():
-    def __init__(self, pendulum):
+class EnergyExtension(updatable.Updatable):
+    def __init__(self, pendulum, ticksPerUpdate=1, totalColourId=wx.BLACK, kineticColourId=wx.RED, potentialColourId=wx.BLUE):
+        updatable.Updatable.__init__(self, ticksPerUpdate)
+
         self.pendulum = pendulum
         objects = self.pendulum.GetVariableObjects()
         self.angles = objects['angles']
@@ -50,9 +62,13 @@ class EnergyExtension():
         self.lengths = objects['lengths']
         self.g = objects['g']
 
-        self.data = {"potential":GraphableData([0], wx.Colour(wx.BLUE)), 
-                    "kinetic":GraphableData([0], wx.Colour(wx.RED)), 
-                    "total":GraphableData([0], wx.Colour(wx.BLACK))
+        self.totalEnergyColour = wx.Colour(totalColourId)
+        self.kineticEnergyColour = wx.Colour(kineticColourId)
+        self.potentialEnergyColour = wx.Colour(potentialColourId)
+
+        self.data = {"total":GraphableData(values=[0], colour=self.totalEnergyColour), 
+                    "kinetic":GraphableData(values=[0], colour=self.kineticEnergyColour), 
+                    "potential":GraphableData(values=[0], colour=self.potentialEnergyColour)
                     }
     
     def GetPotentialEnergy(self):
@@ -80,15 +96,30 @@ class EnergyExtension():
 
         return energy
 
+    # Overload from Updatable class
+    def UpdateData(self):
+        pass
+
+    def AddValue(self, key, value):
+        self.data[key].values.append(value)
+
+    def SetColours(self, total=None, kinetic=None, potential=None):
+        if total != None:
+            self.data['total'].colour = total
+        if kinetic != None:
+            self.data['kinetic'].colour = kinetic
+        if potential != None:
+            self.data['potential'].colour = potential
+
 if __name__ == '__main__':
     from pendulum import PendulumBase
 
-    pendulum = PendulumBase(1, 1, 0.0001)
-    pendulum.AddBob(1, angle=3, mass=1, length=100)
-    pendulum.AddBob(2, angle=3.1415, mass=1, length=100)
-    pendulum.AddBob(3, length=100, angle=3.1415, mass=1)
-    ee = EnergyExtension(pendulum)
-    variables = pendulum.GetVariableObjects()
+    pend = PendulumBase(1, 1, 0.0001)
+    pend.AddBob(1, angle=3, mass=1, length=100)
+    pend.AddBob(2, angle=3.1415, mass=1, length=100)
+    pend.AddBob(3, length=100, angle=3.1415, mass=1)
+    ee = EnergyExtension(pend)
+    variables = pend.GetVariableObjects()
 
     mini = ee.GetPotentialEnergy() + ee.GetKineticEnergy()
     maxi = mini
@@ -96,7 +127,7 @@ if __name__ == '__main__':
     print "Init total: " + str(mini)
 
     for i in range(0, 30000):
-        pendulum.Tick()
+        pend.Tick()
         total = ee.GetPotentialEnergy() + ee.GetKineticEnergy()
         mini = min(mini, total)
         maxi = max(maxi, total)

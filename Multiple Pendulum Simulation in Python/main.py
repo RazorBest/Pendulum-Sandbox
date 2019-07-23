@@ -62,10 +62,9 @@ class SimulationWindow(BufferedWindow):
     DRAG_STATE = 8
     HOVER_STATE = 16
     STARTED_STATE = 32
+    TICKS_PER_SECOND = 1500
 
     def __init__(self, *args, **kwargs):
-        self.ticksPerSecond = 1500
-
         kwargs['name'] = 'simulationWindow'
         BufferedWindow.__init__(self, *args, **kwargs)
 
@@ -79,7 +78,10 @@ class SimulationWindow(BufferedWindow):
 
         frictionGlider = widgets.FrictionGlider(self, eventHandler=self.pendulumHandler, size=(100, 50))
 
-        self.energyDisplay = widgets.EnergyDisplay(self, self.ticksPerSecond, size=(0, 200), style=wx.BORDER_SIMPLE)
+        # The energy display will be updated every second
+        # The same is for the pendulum EnergyExtension - it has to update every second
+        # If you change the ticksPerSecond here, you have to change it in the AddPendulumFunction
+        self.energyDisplay = widgets.EnergyDisplay(self, self.TICKS_PER_SECOND, size=(0, 200), style=wx.BORDER_SIMPLE)
 
         frictionGliderSizer = wx.BoxSizer(wx.HORIZONTAL)
         #Add a very high proportion compared to the frictionGlider so it will aligned to the right
@@ -154,7 +156,7 @@ class SimulationWindow(BufferedWindow):
         print "Thread started"
 
         lastTime = time.clock()
-        ticksPerSecond = self.ticksPerSecond
+        ticksPerSecond = self.TICKS_PER_SECOND
         tickInterval = 1. / ticksPerSecond
 
         while self.running:
@@ -210,9 +212,10 @@ class SimulationWindow(BufferedWindow):
         self.pause = pause
         if pause == False:
             self.state |= self.STARTED_STATE
+        self.pendulumHandler.Pause(pause)
 
     def Reload(self):
-        self.pause = True
+        self.SetPause(True)
         self.state &= ~self.STARTED_STATE
         self.pendulumHandler.ReleaseStack()
         self.pendulumHandler.SendParameters()
@@ -295,7 +298,7 @@ class SimulationWindow(BufferedWindow):
         # You can't create a pendulum if the simulation has started (that's what the condition is checking)
         elif not (self.state & self.STARTED_STATE):
             #extend a pendulum with a bob with its pivot at coorinates (x, y)
-            pendulumId = self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
+            pendulumId = self.AddPendulum(e.x, e.y)
             self.hoverState = CollisionState()
             self.dragState = CollisionState()
             self.StartCreation(pendulumId, x, y)
@@ -325,7 +328,9 @@ class SimulationWindow(BufferedWindow):
     def AddPendulum(self, x=300, y=200):
         x, y = self.TranslateCoord(x, y)
 
-        return self.pendulumHandler.AddPendulum(x, y, 1. / self.ticksPerSecond)
+        # If you chage the self.TICKS_PER_SECOND parameter here(the third one), you'll also have to change it in the init function
+        # At the creation of EnergyDisplay
+        return self.pendulumHandler.AddPendulum(x, y, self.TICKS_PER_SECOND, 1. / self.TICKS_PER_SECOND)
 
     def StartCreation(self, pendulumId, x=0, y=0):
         self.pendulumCreator.SetPendulumId(pendulumId)
@@ -550,6 +555,7 @@ class PendulumHandler(wx.EvtHandler):
         self.pendulumId = 0
         self.bobId = 0
         self.timeInterval = 1000
+        self.pause = False
 
         self.pendulumEventHandler = None
         self.simulationWindow = wx.FindWindowByName('simulationWindow')
@@ -575,12 +581,12 @@ class PendulumHandler(wx.EvtHandler):
             if not (variable in valueDict):
                 valueDict[variable] = value
 
-    def AddPendulum(self, x, y, timeInterval=None):
+    def AddPendulum(self, x, y, extensionTicksPerUpdate, timeInterval=None):
         if timeInterval == None:
             timeInterval = self.timeInterval
         self.pendulumId += 1
         pendulum = Pendulum(x, y, timeInterval)
-        ee = extensions.EnergyExtension(pendulum)
+        ee = extensions.EnergyExtension(pendulum, extensionTicksPerUpdate)
         self.extensionDict[self.pendulumId] = ee
         if not self.simulationWindow.IsStarted():
             self.pendulumDict[self.pendulumId] = pendulum
@@ -659,11 +665,16 @@ class PendulumHandler(wx.EvtHandler):
             new_dict[key] = DataHolder(value)
         return new_dict
 
-    def SetTimeInterval(self, timeInterval):
+    def SetTimeInterval(self, timeInterval, pendulumId=None):
         """You can call this funtion before
             adding a sequence pendulums with the same timeInterval
         """
-        self.timeInterval = timeInterval
+
+        if pendulumId == None:
+            self.timeInterval = timeInterval
+            return
+        self.pendulumDict[pendulumId].updateInterval = timeInterval
+        self.pendulumDict[pendulumId].timeInterval = timeInterval
 
     def LinkVariable(self, obj, pendulumId, bobId, name):
         self.bobLinker[obj] = self.variableList[pendulumId][bobId][name]
@@ -749,9 +760,15 @@ class PendulumHandler(wx.EvtHandler):
         """
         return self.pendulumDict[pendulumId].GetPos(bobId)
 
+    def Pause(self, pause):
+        for pendulum in self.pendulumDict.values():
+            pendulum.pause = pause
+
     def Tick(self):
         for pendulum in self.pendulumDict.values():
             pendulum.Tick()
+        for extension in self.extensionDict.values():
+            extension.Tick()
 
     def Draw(self, dc):
         for pendulum in self.pendulumDict.values():

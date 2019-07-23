@@ -1,15 +1,21 @@
 from __future__ import division
+import numpy
 from numpy.linalg import solve
 from numpy import zeros, float64
 from math import sin, cos, sqrt
 import wx
 import time
+from updatable import Updatable
 
-class PendulumBase():
+numpy.seterr(all='raise')
+
+class PendulumBase(Updatable):
 
     frictionCoefficient = 0
 
     def __init__(self, x, y, timeInterval):
+        Updatable.__init__(self, updateInterval=timeInterval)
+
         self.x = x
         self.y = y
 
@@ -90,6 +96,13 @@ class PendulumBase():
         n = self.bobCount
         a = self.angles
 
+        #Check boundaries
+        for i in range(0, n):
+            if self.vels[i] < -100:
+                self.vels[i] = 100
+            if self.vels[i] > 100:
+                self.vels[i] = 100
+
         for i in range(0, n):
             self.lc[i] = self.l[i] * cos(a[i])
             self.ls[i] = self.l[i] * sin(a[i])
@@ -122,10 +135,13 @@ class PendulumBase():
             self.A[2 * i][n + i + 1] = sin(a[i + 1]) / self.m[i]
             self.A[2 * i + 1][n + i + 1] = - cos(a[i + 1]) / self.m[i]
 
+        assert(not numpy.isnan(self.A).any() and not numpy.isnan(self.B).any()), "There are NaN values in the arrays - pendulum.py Accelerations()"
+
+
         acc = solve(self.A, self.B)
         return acc[:n]
 
-    def Tick(self):
+    def UpdateData(self):
         acc = self.Accelerations()
         for i in range(0, self.bobCount):
             self.vels[i] += acc[i] * self.deltaT
@@ -150,6 +166,14 @@ class PendulumBase():
             "masses": self.m,
             "lengths": self.l,
             "g": self.g}
+    
+    @property
+    def timeInterval(self):
+        return self.deltaT
+    
+    @timeInterval.setter
+    def timeInterval(self, timeInterval):
+        self.deltaT = timeInterval
 
 class CollisionState():
     def __init__(self, pivot=False, bobIndex=0, lastBob=False, rod=False, id=0):
@@ -347,7 +371,7 @@ if __name__ == '__main__':
     ticks = 200000
     t = time.clock()
     for i in range(0, ticks):
-        p.Tick()
+        p.UpdateData()
     t = time.clock() - t
     print 'Time: ' + str(t)
     f = open('pendulum_performance_time.txt', 'a')

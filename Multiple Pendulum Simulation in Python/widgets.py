@@ -2,6 +2,7 @@ import wx
 import wx.lib.newevent
 from wx.adv import PseudoDC
 from buffered import BufferedWindow
+from updatable import Updatable
 
 FrictionUpdateEvent, EVT_FRICTION_UPDATE = wx.lib.newevent.NewEvent()
 
@@ -22,31 +23,7 @@ def OnSkipMouseEvent(e):
     e.Position = parent.ScreenToClient(e.GetEventObject().ClientToScreen(e.Position))
     wx.PostEvent(parent, e)
 
-class LiveObject():
-    """This class handles an object that can be updated repeatedly within a given time interval"""
-    def __init__(self, ticksPerUpdate):
-        self.ticksPerUpdate = ticksPerUpdate
-
-        self.ticks = 0
-
-    def UpdateData(self):
-        """This function should be implemented by subclasses"""
-        pass
-
-    def Tick(self):
-        self.ticks += 1
-        if self.ticks >= self.ticksPerUpdate:
-            self.ticks = 0
-            self.UpdateData()
-
-    @property
-    def ticksPerUpdate(self):
-        return self.__ticksPerUpdate
-    
-    @ticksPerUpdate.setter
-    def ticksPerUpdate(self, ticksPerUpdate):
-        self.__ticksPerUpdate = ticksPerUpdate
-
+# I should move this somewhere (question mark)
 class UserResizableWindow(wx.Window):
     INVALID_POSITION = 0
     TOP_POSITION = 1
@@ -178,12 +155,12 @@ class UserResizableWindow(wx.Window):
         if self.HasCapture():
             self.ReleaseMouse()
 
-class EnergyDisplayScreen(wx.Window, LiveObject):
+class EnergyDisplayScreen(wx.Window, Updatable):
     def __init__(self, parent, ticksPerUpdate=1, scale=10, extension=None, **kwargs):
         wx.Window.__init__(self, parent, **kwargs)
-        LiveObject.__init__(self, ticksPerUpdate)
+        Updatable.__init__(self, ticksPerUpdate=ticksPerUpdate)
 
-        self._extension = extension
+        self.__extension = extension
         self.scale = scale
 
         self._minVal = 0
@@ -195,7 +172,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         self.timeAxisY = 20
 
         self.topSpace = 15
-        self.originX = 50
+        self.originX = 65
         self.originY = self.timeAxisY + 10
 
         self.Bind(wx.EVT_SIZE, self.OnSize)
@@ -267,14 +244,19 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         newMaxVal = None
         newMinVal = None 
 
+        #Draw total, kinetic and potential energy points
         for data in self.extension.data.values():
+            if not data.visible:
+                continue
+
             values = data.values
 
+            #Set the list of points to be drawn
             points = []
             for i in range(len(values)):
                 x = i * self.scale + self.originX
                 y = height - values[i] * 1. / interval * (limit - self.originY) - self.originY
-                points.append(wx.Point(x, y))
+                points.append(wx.Point(int(x), int(y)))
 
                 if newMaxVal == None:
                     newMaxVal = values[i]
@@ -283,39 +265,16 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
                 newMaxVal = max(values[i], newMaxVal)
                 newMinVal = min(values[i], newMinVal)
 
+            #Draw the list of points using interpolation
             if len(values) > 2:
-                dc.SetBrush(wx.Brush(data.color))
-                dc.SetPen(wx.Pen(data.color))
+                dc.SetBrush(wx.Brush(data.colour))
+                dc.SetPen(wx.Pen(data.colour))
                 dc.DrawSpline(points)
 
         if newMaxVal != None:
             self.maxVal = newMaxVal
         if newMinVal != None:
             self.minVal = newMinVal
-
-        """
-        self.dataIterator = 1
-        i = None
-        for data in self.extension.data.values():
-            
-            values = data.values
-
-            i = self.dataIterator
-
-            lastY = values[i - 1] * 1. / interval * (height - self.originY) + self.originY
-            lastX = (i - 1) * self.scale + self.originX
-            
-            while i < len(values):
-                y = values[i] * 1. / interval * (height - self.originY) + self.originY
-                x = i * self.scale + self.originX
-                dc.SetBrush(wx.Brush(data.color))
-                dc.SetPen(wx.Pen(data.color))
-                dc.DrawLine(lastX, height - lastY, x, height - y)
-                lastX = x
-                lastY = y
-                i += 1
-
-        self.dataIterator = i"""
 
     def OnPaint(self, e):
         self.clear = True
@@ -330,7 +289,7 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         e.Skip()
 
     def AddValue(self, key, value):
-        self.extension.data[key].values.append(value)
+        self.extension.AddValue(key, value)
         if (value > self.maxVal):
             self.maxVal = value
             self.clear = True
@@ -359,11 +318,11 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
 
     @property
     def extension(self):
-        return self._extension
+        return self.__extension
 
     @extension.setter
     def extension(self, extension):
-        self._extension = extension
+        self.__extension = extension
         self.UpdateMinMax()
         # Repaint
         dc = wx.ClientDC(self)
@@ -391,12 +350,53 @@ class EnergyDisplayScreen(wx.Window, LiveObject):
         else:
             self._maxVal = self.minVal + 10
 
+class Legend(wx.Window):
+    def __init__(self, parent, choices, colours, *args, **kwargs):
+        assert(len(choices) == len(colours)), "choices and colours must be lists with the same size"
+        
+        if not 'style' in kwargs:
+            kwargs['style'] = 0
+        kwargs['style'] = wx.BORDER_SIMPLE
+        wx.Window.__init__(self, parent, *args, **kwargs)
+
+        self.SetBackgroundColour(wx.Colour(wx.WHITE))
+
+        self.checklist = wx.CheckListBox(self, choices=choices)
+        self.checklist.SetCheckedItems([0, 1, 2])
+        for i in range(0, len(colours)):
+            self.checklist.SetItemForegroundColour(i, colours[i])
+
+    def IsChecked(self, item):
+        return self.checklist.IsChecked(item)
+
 class EnergyDisplay(UserResizableWindow):
     def __init__(self, parent, ticksPerUpdate=1, scale=10, extension=None, **kwargs):
         UserResizableWindow.__init__(self, parent, 15, -1, -1, -1, 20, 20, **kwargs)
         
+        self.choices = ["Total", "Kinetic", "Potential"]
+        self.colourIds = [wx.BLACK, wx.RED, wx.BLUE]
+        self.visibleItems = [True, True, True]
+
+        if extension != None:
+            extension.SetColours(total=wx.Colour(self.totalEnergyColourId),
+                            kinetic=wx.Colour(self.kineticEnergyColourId),
+                            potential=wx.Colour(self.potentialEnergyColourId))
+
         self.screen = EnergyDisplayScreen(self, ticksPerUpdate, scale, extension, style=wx.STATIC_BORDER)
-        
+        self.legend = Legend(
+                        self, 
+                        choices=self.choices,
+                        colours=[
+                            wx.Colour(self.colourIds[0]),
+                            wx.Colour(self.colourIds[1]),
+                            wx.Colour(self.colourIds[2])
+                            ]
+                        )
+        self.legend.Fit()
+        self.screen.SetMinSize((30, 30))
+        #self.legend.SetMinSize((0, 0))
+        #self.
+
         self.topBar = wx.Window(self, size=(0, 20))
         self.topBar.SetBackgroundColour(wx.Colour(90, 90, 100))
 
@@ -406,11 +406,25 @@ class EnergyDisplay(UserResizableWindow):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.topBar, flag=wx.EXPAND)
         self.sizer.AddSpacer(5)
-        self.sizer.Add(self.screen, 1, wx.EXPAND)
+
+        self.horizontalSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.horizontalSizer.Add(self.screen, 1, wx.EXPAND)
+        self.horizontalSizer.Add(self.legend, flag=wx.EXPAND)
+        self.sizer.Add(self.horizontalSizer, 1, wx.EXPAND)
+
+        self.horizontalSizer.Layout()
+
+        #self.sizer.Add(self.screen, 1, wx.EXPAND)
         self.sizer.Layout()
+
         self.SetSizer(self.sizer)
 
         self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.legend.Bind(wx.EVT_CHECKLISTBOX, self.OnCheckLegend)
+
+    def OnCheckLegend(self, e):
+        item = e.GetInt()
+        self.SetVisible(item, self.legend.IsChecked(item))
 
     def OnSize(self, e):
         self.Refresh()
@@ -422,6 +436,17 @@ class EnergyDisplay(UserResizableWindow):
     def Draw(self, dc):
         self.screen.Draw(dc)
 
+    def SetVisible(self, itemId, visible):
+        key = None
+        if itemId == 0:
+            key = 'total'
+        elif itemId == 1:
+            key = 'kinetic'
+        elif itemId == 2:
+            key = 'potential'     
+        self.screen.extension.data[key].visible = visible
+        self.visibleItems[itemId] = visible
+
     @property
     def extension(self):
         return self.screen.extension
@@ -429,6 +454,12 @@ class EnergyDisplay(UserResizableWindow):
     @extension.setter
     def extension(self, extension):
         self.screen.extension = extension
+        extension.SetColours(total=wx.Colour(self.colourIds[0]),
+                            kinetic=wx.Colour(self.colourIds[1]),
+                            potential=wx.Colour(self.colourIds[2]))
+        extension.data['total'].visible = self.visibleItems[0]
+        extension.data['kinetic'].visible = self.visibleItems[1]
+        extension.data['potential'].visible = self.visibleItems[2]
 
     @property
     def minVal(self):

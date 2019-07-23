@@ -97,6 +97,7 @@ class NumberValidator(wx.Validator):
         if text != '' and re.search('[0-9]', text) != None:
             isNumber = True
             number = float(text)
+            # Check boundaries
             if self.min_val != None:
                 if number < self.min_val:
                     text = str(self.min_val)
@@ -129,18 +130,25 @@ class NumberValidator(wx.Validator):
 
 class NumberInputCtrl(wx.TextCtrl):
     def __init__(self, parent, **kwargs):
+        if not 'min_val' in kwargs:
+            kwargs['min_val'] = None
+        if not 'max_val' in kwargs:
+            kwargs['max_val'] = None
+        kwargs['validator'] = NumberValidator(min_val=kwargs['min_val'], max_val=kwargs['max_val'])
+        del kwargs['min_val']
+        del kwargs['max_val']
         wx.TextCtrl.__init__(self, parent, **kwargs)
 
         self.Bind(wx.EVT_TEXT, self.OnText)
 
-    #This function will be called when the user inserts/changes/deletes a character
+    # This function will be called when the user inserts/changes/deletes a character
     def OnText(self, e=None):
         validator = self.GetValidator()
         if validator.Validate(self):
-            self.OnUpdateVariable()
+            self.OnUpdateVariable(float(self.GetValue()))
         
     # This function will be implemented by subclasses
-    def OnUpdateVariable(self):
+    def OnUpdateVariable(self, value):
         pass
 
     def SetParameter(self, value):
@@ -150,6 +158,7 @@ class NumberInputCtrl(wx.TextCtrl):
         self.ChangeValue(str(value))
 
 class BobVariableInputCtrl(NumberInputCtrl):
+    """Specialization class for NumberInputCtrl, made for bob variables"""
     def __init__(self, parent, pendulumHandler, **kwargs):
         self.variableName = kwargs['variableName']
         del kwargs['variableName']
@@ -164,14 +173,26 @@ class BobVariableInputCtrl(NumberInputCtrl):
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.OnText()
 
-    #This function will be called when the user inserts/changes/deletes a character
-    def OnUpdateVariable(self, e=None):
+    #This function will be called from the parrent class when the user inserts/changes/deletes a character
+    def OnUpdateVariable(self, value):
         self.pendulumHandler.SetParameter(self, float(self.GetValue()))
         if not self.simulationWindow.IsStarted():   # This should not be here
             self.pendulumHandler.SendParameters() 
 
     def OnClose(self, e):
         self.pendulumHandler.UnlinkVariable(self)
+
+class TimeIntervalInputCtrl(NumberInputCtrl):
+    def __init__(self, parent, pendulumHandler, pendulumId, **kwargs):
+        NumberInputCtrl.__init__(self, parent, **kwargs)
+
+        self.pendulumId = pendulumId
+        self.pendulumHandler = pendulumHandler
+
+    #This function will be called from the parrent class when the user inserts/changes/deletes a character
+    def OnUpdateVariable(self, value):
+        self.pendulumHandler.SetTimeInterval(value, self.pendulumId)
+
 
 class VariableEditor(wxcp.PyCollapsiblePane):
 
@@ -204,7 +225,6 @@ class VariableEditor(wxcp.PyCollapsiblePane):
             for key in self.variableNames:
                 self.defaultValues.append(valueDict[key])
 
-        self.validators = dict.fromkeys(self.variableNames)
         self.SetVariables()
 
         self.Bind(wxcp.EVT_COLLAPSIBLEPANE_CHANGED, self.OnPaneChanged)
@@ -223,15 +243,13 @@ class VariableEditor(wxcp.PyCollapsiblePane):
         label = wx.StaticText(self.GetPane(), label=variableName + ': ')
         self.sizer.Add(label, 0)
 
-        validator = NumberValidator(min_val=min_val, max_val=max_val)
-        #validator.SetMinMax(val_min, val_max)
-        self.validators[variableName] = validator
         t = BobVariableInputCtrl(
             self.GetPane(),
             self.pendulumHandler,
             value=str(value),
             style=wx.BORDER_DEFAULT,
-            validator=validator,
+            min_val=min_val,
+            max_val=max_val,
             variableName=variableName
         )
         t.ShowNativeCaret()
@@ -254,8 +272,9 @@ class VariableEditor(wxcp.PyCollapsiblePane):
 
 class PendulumEditor(wxcp.PyCollapsiblePane):
     def __init__(self, pendulumId, parent, pendulumHandler, **kwargs):
-        self.pendulumId = pendulumId
         wxcp.PyCollapsiblePane.__init__(self, parent, **kwargs)
+
+        self.pendulumId = pendulumId
 
         self.GetPane().SetOwnBackgroundColour(self.GetParent().GetBackgroundColour())
         button = prepareButton(self, wx.Colour(130, 130, 130), wx.Colour(155, 155, 155), self.GetLabel(), 100, 17)
@@ -270,6 +289,22 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.bobList = []
         self.bobDict = {}
 
+        # Add the input text for the time interval of the pendulum
+        inputSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.updateIntervalLabel = wx.StaticText(
+            self.GetPane(), 
+            label='Update interval: ', 
+            style=wx.ST_ELLIPSIZE_END)
+        self.updateIntervalLabel.SetMaxSize(self.updateIntervalLabel.GetSize())
+        self.updateIntervalInput = TimeIntervalInputCtrl(self.GetPane(), pendulumHandler, pendulumId, min_val=0, max_val=1)
+        self.updateIntervalInput.ShowNativeCaret()
+        self.updateIntervalInput.SetMaxLength(20)
+        inputSizer.Add(self.updateIntervalLabel)
+        inputSizer.Add(self.updateIntervalInput)
+        self.sizer.Add(inputSizer)
+        self.sizer.Layout()
+
+        # Add the button used for appending bobs on the pendulum
         addBobButton = wx.Button(self.GetPane(), label='Add Bob')
         self.sizer.Add(addBobButton)
         self.sizer.Layout()
@@ -285,6 +320,16 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
         self.Bind(EVT_BOB_VARIABLES_UPDATE, self.OnBobVariablesUpdate)
 
+        self.GetParent().Bind(wx.EVT_SIZE, self.OnSizeParent)
+        self.cnt = 0
+
+    def OnSizeParent(self, e):
+        self.cnt += 1
+        if self.cnt > 10:
+            minWidth = e.Size.Width - self.updateIntervalInput.Rect.Width
+            self.updateIntervalLabel.SetMinSize((min(self.updateIntervalLabel.MaxWidth, minWidth), 20))
+        e.Skip()
+
     def OnAddBobButton(self, e):
         pendulumEvent = BobCreationStartEvent(
             pendulumId=self.pendulumId,
@@ -292,6 +337,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         wx.PostEvent(self.pendulumHandler, pendulumEvent)
 
     def OnBobReady(self, e):
+        """This function is called after PendulumHandler finishes creating the bob"""
         bobEditor = self.AddBob(e.bobId, e.valueDict)
 
     def OnBobVariablesUpdate(self, e):
@@ -418,6 +464,9 @@ class Explorer(wx.ScrolledCanvas):
         wx.PostEvent(self.pendulumEditorDict[e.pendulumId], e)
 
     def AddPendulum(self, pendulumId, x=None, y=None, bobs=0):
+        """This function creates the pendulum editor inside the explorer panel, 
+            liking it with the pendulum on the simulation window"""
+
         self.pendulumCount += 1
         """if pendulumId == None:
             if x != None and y != None:
