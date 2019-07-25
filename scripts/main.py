@@ -62,7 +62,7 @@ class SimulationWindow(BufferedWindow):
     DRAG_STATE = 8
     HOVER_STATE = 16
     STARTED_STATE = 32
-    TICKS_PER_SECOND = 1500
+    TICKS_PER_SECOND = 500
 
     def __init__(self, *args, **kwargs):
         kwargs['name'] = 'simulationWindow'
@@ -80,7 +80,7 @@ class SimulationWindow(BufferedWindow):
 
         # The energy display will be updated every second
         # The same is for the pendulum EnergyExtension - it has to update every second
-        # If you change the ticksPerSecond here, you have to change it in the AddPendulumFunction
+        # If you change the ticksPerSecond here, you have to change it in the AddPendulum() function
         self.energyDisplay = widgets.EnergyDisplay(self, self.TICKS_PER_SECOND, size=(0, 200), style=wx.BORDER_SIMPLE)
 
         frictionGliderSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -768,7 +768,8 @@ class PendulumHandler(wx.EvtHandler):
         for pendulum in self.pendulumDict.values():
             pendulum.Tick()
         for extension in self.extensionDict.values():
-            extension.Tick()
+            if extension.pendulum.IsSelected():
+                extension.Tick()
 
     def Draw(self, dc):
         for pendulum in self.pendulumDict.values():

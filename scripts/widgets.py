@@ -181,13 +181,6 @@ class EnergyDisplayScreen(wx.Window, Updatable):
         self.clear = True
 
     def UpdateData(self):
-        potential = self.extension.GetPotentialEnergy()
-        kinetic = self.extension.GetKineticEnergy()
-        total = potential + kinetic
-        self.AddValue('potential', potential)
-        self.AddValue('kinetic', kinetic)
-        self.AddValue('total', total)
-
         width, height = self.GetSize()
         n = len(self.extension.data['potential'].values)
         while self.scale * (n + 3) > width:

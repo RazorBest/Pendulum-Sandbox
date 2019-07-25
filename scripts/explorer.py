@@ -320,7 +320,7 @@ class PendulumEditor(wxcp.PyCollapsiblePane):
         self.Bind(EVT_BOB_CREATION_READY, self.OnBobReady)
         self.Bind(EVT_BOB_VARIABLES_UPDATE, self.OnBobVariablesUpdate)
 
-        self.GetParent().Bind(wx.EVT_SIZE, self.OnSizeParent)
+        #self.GetParent().Bind(wx.EVT_SIZE, self.OnSizeParent)
         self.cnt = 0
 
     def OnSizeParent(self, e):
@@ -481,6 +481,7 @@ class Explorer(wx.ScrolledCanvas):
             self.pendulumHandler,
             label='Pendulum ' + str(self.pendulumCount),
             agwStyle=wxcp.CP_GTK_EXPANDER)
+        self.Bind(wx.EVT_SIZE, pane.OnSizeParent)
         self.pendulumEditorDict[pendulumId] = pane
 
         #for i in range(bobs):
@@ -514,6 +515,7 @@ class Explorer(wx.ScrolledCanvas):
     def OnRemovePendulumButton(self, e):
         pane = self.pendulumCloseButtonDict[e.GetId()]["pane"]
         sizer = self.pendulumCloseButtonDict[e.GetId()]["sizer"]
+        self.Unbind(wx.EVT_SIZE, handler=pane.OnSizeParent)
         pane.Close()
         for child in sizer.GetChildren():
             child.DeleteWindows()

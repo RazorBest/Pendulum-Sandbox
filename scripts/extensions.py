@@ -98,7 +98,12 @@ class EnergyExtension(updatable.Updatable):
 
     # Overload from Updatable class
     def UpdateData(self):
-        pass
+        potential = self.GetPotentialEnergy()
+        kinetic = self.GetKineticEnergy()
+        total = potential + kinetic
+        self.AddValue('potential', potential)
+        self.AddValue('kinetic', kinetic)
+        self.AddValue('total', total)
 
     def AddValue(self, key, value):
         self.data[key].values.append(value)
