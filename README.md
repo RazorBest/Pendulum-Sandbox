@@ -11,7 +11,10 @@ Windows 10.
 Programul a fost făcut in python2.7. 
 
 Dacă ai deja python2.7 instalat, atunci descarcă proiectul. Va trebui să instalezi următoarele moduleȘ
+    
     pip install numpy
     pip install wxPython
+
 Poți rula programul din folderul principal, cu comanda:
+    
     python scripts/main.py
