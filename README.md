@@ -10,7 +10,9 @@ Windows 10.
 
 Programul a fost făcut in python2.7. 
 
-Dacă ai deja python2.7 instalat, atunci descarcă proiectul. Va trebui să instalezi următoarele module:
+Poți instala python2.7 de aici (Windows X86-64 MSI Installer): https://www.python.org/download/releases/2.7/
+
+Dacă ai deja python2.7 instalat, atunci descarcă proiectul. Va trebui să instalezi modulele numpy și WxPython. În linia de comandă, introdu următoarele comenzi:
     
     pip install numpy
     pip install wxPython
