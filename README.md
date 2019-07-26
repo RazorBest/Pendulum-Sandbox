@@ -1,20 +1,24 @@
 # Pendulum-sandbox
 
-Acesta este un program facut pentru a simula pendule multiple. Acesta dispune de o interfață grafică prin care utilizatorul poate crea mai multe pendule, fie separate, fie legate unul de altul, și apoi, poate observa mișcarea dezordonată a acestora.
+This is a program made for the simulation of multiple pendulums. The user can create one ore more pendulums through the GUI.
 
-## Cerințe de sistem
+## Requirements
 
 Windows 10.
 
-## Instalare
+## Installation
 
-Programul a fost făcut in python2.7. 
+First, you have to install python2.7. You can install it from here: (Windows X86-64 MSI Installer): https://www.python.org/download/releases/2.7/
 
-Dacă ai deja python2.7 instalat, atunci descarcă proiectul. Va trebui să instalezi următoarele module:
+If you have already installed python2.7, then clone the repo. You will need to install numpy and WxPython. In cmd, you can write this:
     
     pip install numpy
     pip install wxPython
 
-Poți rula programul din folderul principal, cu comanda:
+You can run the program with:
     
     python scripts/main.py
+    
+## Technical description
+
+The program was built with python 2.7, along with numpy and wxPython modules. WxPython is used for creating easily native guis. Numpy is a package used for scientific computing. In this case, we're using numpy for liniar algebra.
