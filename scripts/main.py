@@ -62,6 +62,8 @@ class SimulationWindow(BufferedWindow):
     DRAG_STATE = 8
     HOVER_STATE = 16
     STARTED_STATE = 32
+    MOVING_FROM_RIGHT_CLICK_STATE = 64
+
     TICKS_PER_SECOND = 500
 
     def __init__(self, *args, **kwargs):
@@ -107,6 +109,8 @@ class SimulationWindow(BufferedWindow):
         self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp)
+        self.Bind(wx.EVT_RIGHT_DOWN, self.OnRightDown)
+        self.Bind(wx.EVT_RIGHT_UP, self.OnRightUp)
         self.Bind(wx.EVT_ENTER_WINDOW, self.OnEnterWindow)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
@@ -189,7 +193,7 @@ class SimulationWindow(BufferedWindow):
         dc.SetUserScale(self.scale, self.scale)
 
         #Draws a light gray circle for the space in which will be the future pivot
-        if not (self.state & (self.MOVING_STATE | self.STARTED_STATE)) and self.hoverState.id == 0 and self.state & self.ENTERED_STATE:
+        if not (self.state & (self.MOVING_STATE | self.STARTED_STATE | self.MOVING_FROM_RIGHT_CLICK_STATE)) and self.hoverState.id == 0 and self.state & self.ENTERED_STATE:
             dc.SetPen(wx.Pen(wx.Colour(175, 175, 175)))
             dc.SetBrush(wx.Brush(wx.Colour(175, 175, 175)))
             dc.DrawCircle(self.TranslateCoord(self.lastMouseX, self.lastMouseY), 10)
@@ -247,11 +251,11 @@ class SimulationWindow(BufferedWindow):
         self.lastMouseX = x
         self.lastMouseY = y
 
-        if not e.LeftIsDown():
+        if not e.LeftIsDown() and not e.RightIsDown():
             self.hoverState = self.pendulumHandler.PendulumCollision(*self.TranslateCoord(x, y))
             return
 
-        if self.state & self.MOVING_STATE:
+        if self.state & (self.MOVING_STATE | self.MOVING_FROM_RIGHT_CLICK_STATE):
             self.originX += dx
             self.originY += dy
 
@@ -270,12 +274,21 @@ class SimulationWindow(BufferedWindow):
             self.pendulumCreator.SetXY(*self.TranslateCoord(x, y))
             return
 
+    def OnRightDown(self, e):
+        self.SetCursor(wx.Cursor(wx.CURSOR_SIZING))
+        self.state |= self.MOVING_FROM_RIGHT_CLICK_STATE
+
+    def OnRightUp(self, e):
+        if not self.state & self.MOVING_STATE:
+            self.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
+        self.state &= ~self.MOVING_FROM_RIGHT_CLICK_STATE
+
     def OnLeftDown(self, e):
         x, y = self.TranslateCoord(e.x, e.y)
 
         # If the cursor is in the moving state, 
         #   meaning the user can only move through the working space and he can't create pendulums or interact with them
-        if self.state & self.MOVING_STATE:
+        if self.state & (self.MOVING_STATE | self.MOVING_FROM_RIGHT_CLICK_STATE):
             return
 
         self.hoverState = self.pendulumHandler.PendulumCollision(x, y)
