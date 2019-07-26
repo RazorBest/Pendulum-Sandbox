@@ -27,5 +27,5 @@ else:
 
 
 if __name__ == '__main__':
-    from scripts.main import main
+    from scripts.scripts.main import main
     main()
