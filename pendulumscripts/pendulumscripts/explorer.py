@@ -15,7 +15,6 @@ def prepareButton(parent, inactiveBgColour, currentBgColour, label='', width=20,
 
     bitmapInactive = wx.Bitmap(width, height)
     bitmapCurrent = wx.Bitmap(width, height)
-    dc = wx.MemoryDC()
 
     # Draw the button in the inactive mode
     drawButton(bitmapInactive, inactiveBgColour, label)
