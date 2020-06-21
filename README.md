@@ -17,7 +17,7 @@ If you have already installed python2.7, then clone the repo. You will need to i
 
 You can run the program with:
     
-    python pendulumscripts/pendulumscripts/main.py
+    python scripts/main.py
     
 ## Technical description
 
